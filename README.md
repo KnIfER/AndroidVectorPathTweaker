@@ -1,4 +1,4 @@
-# AndroidLocalizePlugin
+# Android VectorPathTweaker Plugin
 Android customize vector drawable plugin. support multiple pathData gramma, no need to manually modify the data. ([中文文档](https://github.com/KnIfER/AndroidVectorPathTweaker/blob/master/README_CN.md))
 
 # Feature
