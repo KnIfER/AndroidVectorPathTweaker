@@ -1,0 +1,42 @@
+<idea-plugin>
+    <id>com.knziha.vectorpathtweaker</id>
+    <name>VectorPathTweaker</name>
+    <version>1.0</version>
+    <vendor email="knziha@gmail.com" url="https://github.com/KnIfER/AndroidVectorPathTweaker">KnIfER</vendor>
+
+    <description><![CDATA[
+      Too lazy to become an artist who do paintings? Let's make combinations of android's default vector assets! <br>
+      Flip, transpose, and translate the icons, you will never find it so easy! <br>
+      <li>1. Open one xml vector drawable.</li>
+      <li>2. Select the part of pathData where you wants to modify.</li>
+      <li>3. Right click. In the context menu select 'Tweak Vector Path'.</li>
+      <li>4. Make sure you have the same viewport size in the tweaker dialog .</li>
+      <li>5. Open AndroidStudio's Preview Panel and adjust the vector to your need！.</li>
+    ]]></description>
+
+    <change-notes><![CDATA[
+      <li>V1.0: Initial release of the plugin. <br/>  <br/> </li>
+    ]]></change-notes>
+
+    <!-- please see http://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/build_number_ranges.html for description -->
+    <idea-version since-build="145"/>
+
+    <!-- please see http://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/plugin_compatibility.html
+         on how to target different products -->
+    <depends>com.intellij.modules.lang</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Add your extensions here -->
+    </extensions>
+
+    <actions>
+        <!-- Add your actions here -->
+        <action id="VectorPathTweaker.TweakAction" class="action.TweakAction"
+                text="Tweak Vector Path"
+                icon="PluginIcons.CONVERT_ACTION_ICON"
+                description="Open Path Tweaker Dialog">
+            <add-to-group group-id="EditorPopupMenu"/>
+        </action>
+    </actions>
+
+</idea-plugin>
