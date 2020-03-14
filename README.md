@@ -31,7 +31,7 @@ Android customize vector drawable plugin. support multiple pathData gramma, no n
 - Step 5: Open AndroidStudio's Preview Panel and adjust the vector to your need！
 
 # Thanks
-- Airsaid：[AndroidLocalizePlugin (as a nice tempate)](https://github.com/Airsaid/AndroidLocalizePlugin)
+- Airsaid：[AndroidLocalizePlugin (as a nice template)](https://github.com/Airsaid/AndroidLocalizePlugin)
 - huachao1001 : [IDEA CN TUTs](https://blog.csdn.net/huachao1001/article/details/53885981)
 
 # ContactMe
