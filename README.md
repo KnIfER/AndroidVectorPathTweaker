@@ -5,7 +5,7 @@ Android customize vector drawable plugin. support multiple pathData gramma, no n
 - Support to translate, scale, flip and transpose android vector drawables.
 - Support modify chained path data。(M...zM...z).
 - Revert modifications by a single click if needed（revert）.
-- Modify continuously. Click 'rebase' and all afterward mod will be base on the current state.
+- Modify continuously. Click 'rebase' and all afterward mods will be based on the current state.
 - Realtime updating and previewing.
 
 # Preview
