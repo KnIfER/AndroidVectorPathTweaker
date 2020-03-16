@@ -1,11 +1,11 @@
-# AndroidLocalizePlugin
-Android customize vector drawable plugin. support multiple pathData grammars, no need to manually modify the data. ([中文文档](https://github.com/KnIfER/AndroidVectorPathTweaker/blob/master/README_CN.md))
+# Android VectorPathTweaker Plugin
+Android customize vector drawable plugin. support multiple pathData gramma, no need to manually modify the data. ([中文文档](https://github.com/KnIfER/AndroidVectorPathTweaker/blob/master/README_CN.md))
 
 # Feature
 - Support to translate, scale, flip and transpose android vector drawables.
 - Support modify chained path data。(M...zM...z).
 - Revert modifications by a single click if needed（revert）.
-- Modify continuously. Click 'rebase' and all afterward mod will be base on the current state.
+- Modify continuously. Click 'rebase' and all afterward mods will be based on the current state.
 - Realtime updating and previewing.
 
 # Preview
@@ -32,7 +32,7 @@ Android customize vector drawable plugin. support multiple pathData grammars, no
 
 # Thanks
 - Airsaid：[AndroidLocalizePlugin (as a nice template)](https://github.com/Airsaid/AndroidLocalizePlugin)
-- huachao1001 : [IDEA plugin CN toturial](https://blog.csdn.net/huachao1001/article/details/53885981)
+- huachao1001 : [IDEA CN TUTs](https://blog.csdn.net/huachao1001/article/details/53885981)
 
 # ContactMe
 - Blog: [https://www.jianshu.com/u/77921c0f8d4f](https://www.jianshu.com/u/77921c0f8d4f)
