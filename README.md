@@ -1,5 +1,5 @@
 # AndroidLocalizePlugin
-Android customize vector drawable plugin. support multiple pathData gramma, no need to manually modify the data. ([中文文档](https://github.com/KnIfER/AndroidVectorPathTweaker/blob/master/README_CN.md))
+Android customize vector drawable plugin. support multiple pathData grammars, no need to manually modify the data. ([中文文档](https://github.com/KnIfER/AndroidVectorPathTweaker/blob/master/README_CN.md))
 
 # Feature
 - Support to translate, scale, flip and transpose android vector drawables.
@@ -31,8 +31,8 @@ Android customize vector drawable plugin. support multiple pathData gramma, no n
 - Step 5: Open AndroidStudio's Preview Panel and adjust the vector to your need！
 
 # Thanks
-- Airsaid：[AndroidLocalizePlugin (as a nice tempate)](https://github.com/Airsaid/AndroidLocalizePlugin)
-- huachao1001 : [IDEA CN TUTs](https://blog.csdn.net/huachao1001/article/details/53885981)
+- Airsaid：[AndroidLocalizePlugin (as a nice template)](https://github.com/Airsaid/AndroidLocalizePlugin)
+- huachao1001 : [IDEA plugin CN toturial](https://blog.csdn.net/huachao1001/article/details/53885981)
 
 # ContactMe
 - Blog: [https://www.jianshu.com/u/77921c0f8d4f](https://www.jianshu.com/u/77921c0f8d4f)

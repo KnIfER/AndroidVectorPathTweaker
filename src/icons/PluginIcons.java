@@ -20,6 +20,6 @@ import com.intellij.openapi.util.IconLoader;
 
 import javax.swing.*;
 
-public interface PluginIcons {// 俺也不知道这个类有啥用
-  Icon CONVERT_ACTION_ICON = IconLoader.getIcon("/icons/icon.png");
+public interface PluginIcons {
+  Icon ACTION_ICON = IconLoader.getIcon("/icons/icon.png");
 }

@@ -1,6 +1,5 @@
 /*
  * Copyright 2020 KnIfER
- * Copyright 2018 Airsaid. https://github.com/airsaid ( as template )
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,26 +21,21 @@ import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.actionSystem.PlatformDataKeys;
-import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
+import org.jetbrains.annotations.NotNull;
 import ui.PathTweakerDialog;
 
 /**
  * @author KnIfER
  */
-public class TweakAction extends AnAction{
-    private Project             mProject;
-
+public class TweakerAction extends AnAction{
     @Override
-    public void actionPerformed(AnActionEvent e) {
-		mProject = e.getData(PlatformDataKeys.PROJECT);
-		PathTweakerDialog dialog = new PathTweakerDialog(mProject, e);
-		dialog.setModal(false);
-		dialog.show();
+    public void actionPerformed(@NotNull AnActionEvent e) {
+		new PathTweakerDialog(e.getData(PlatformDataKeys.PROJECT), e).show();
     }
 
     @Override
-    public void update(AnActionEvent e) {
+    public void update(@NotNull AnActionEvent e) {
         super.update(e);
         VirtualFile _mSelectFile = e.getData(CommonDataKeys.VIRTUAL_FILE);
 

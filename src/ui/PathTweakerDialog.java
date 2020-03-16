@@ -23,8 +23,12 @@ import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.SelectionModel;
+import com.intellij.openapi.fileEditor.FileDocumentManager;
+import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
+import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.ui.JBColor;
 import com.intellij.ui.components.JBCheckBox;
 import org.jetbrains.annotations.Nullable;
 
@@ -32,17 +36,18 @@ import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
-import java.awt.event.ItemEvent;
-import java.awt.event.ItemListener;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.awt.event.*;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.util.Arrays;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Select part of the vector's path data and do translations.
+/** Select part of the vector's path data and do transformations.
  * @author KnIfER
  */
 public class PathTweakerDialog extends DialogWrapper {
+    private static boolean debug = true;
     private AnActionEvent       mActionEvent;
     private Project             mProject;
     private Document            mDocument;
@@ -50,6 +55,7 @@ public class PathTweakerDialog extends DialogWrapper {
     private int currentStart;
     private int currentEnd;
     private JLabel maniOffset;
+    private JTextArea logview;
     private String currentText;
 
     private float viewportHeight=24, viewportWidth=24;
@@ -58,13 +64,15 @@ public class PathTweakerDialog extends DialogWrapper {
     private float transX;
     private float transY;
 
-    private static int firstflag;
+    private static int flagStore;
+    private int firstflag;
     private JTextField etFieldvw;
     private JTextField etFieldvh;
     private JTextField etFieldx;
     private JTextField etFieldy;
     private JTextField etFieldscale;
     private JTextField etFieldscaleY;
+    private JPanel contentPanel;
 
     private boolean  getTranslate(){
         return (firstflag&0x1)==0;
@@ -123,25 +131,28 @@ public class PathTweakerDialog extends DialogWrapper {
     }
 
     private boolean  getAutoUpadte(){
-        return (firstflag&0x80)!=0;
+        return (firstflag&0x80)==0;
     }
     private void  setAutoUpadte(boolean val){
         firstflag&=~0x80;
-        if(val) firstflag|=0x80;
+        if(!val) firstflag|=0x80;
     }
     
     public PathTweakerDialog(Project project, AnActionEvent actionEvent) {
         super(project, false);
+        firstflag = flagStore;
         mActionEvent = actionEvent;
         mProject = project;
-        setTitle("Tweak Path Data by KnIfER");
         setResizable(true);
+        setModal(false);
+        //getWindow().setIconImage(Toolkit.getDefaultToolkit().getImage("/icons/icon.png"));
         init();
     }
 
     @Override
     protected void doOKAction() {
         doIt();
+        flagStore = firstflag;
         super.doOKAction();
     }
 
@@ -191,11 +202,63 @@ public class PathTweakerDialog extends DialogWrapper {
             @Override public void changedUpdate(DocumentEvent e) {  }
         };
 
+        MouseWheelListener mouseWheelListener = e -> {
+            JTextField fieldToModify = (JTextField) e.getSource();
+            String valstr = fieldToModify.getText();
+            Float val = parsefloat(valstr);
+            float now = 0;
+            double quantity = 0.1;
+            int keep=2;
+            int xiaoshudian=-1;
+            int caret = -1;
+			if(val!=null){
+				now = val;
+				int len = valstr.length();
+				int idx = valstr.lastIndexOf(".");
+				xiaoshudian = idx;
+				if(idx>0){
+					keep = len-idx-1;
+				} else {
+					xiaoshudian = len;
+				}
+				if(fieldToModify.isFocusOwner()){
+					caret = fieldToModify.getCaretPosition();
+					int level;
+					if(caret>=0 && caret<=len){
+					    if(valstr.trim().startsWith("-")){
+                            int negationIdx = valstr.indexOf("-");
+                            if(caret<=negationIdx) caret=negationIdx+1;
+                        }
+						if(caret==len) caret=len-1;
+						if(idx<0) idx = len;
+						level = idx - caret;
+						if(idx>caret) level-=1;
+					} else {
+						if(idx>0){//找到小数级别
+							level = -len+idx+1;
+						} else {
+							level = idx<0?0:-1;
+						}
+					}
+					quantity = (float) Math.pow(10, level);
+				}
+			}
+            if(keep>3) keep=3;
+            valstr = String.format("%."+keep+"f", now-quantity*e.getWheelRotation());
+			fieldToModify.setText(valstr);
+            if(caret!=-1) {
+                int xs2 = valstr.lastIndexOf(".");
+                if(xs2!=xiaoshudian) caret = caret + xs2 - xiaoshudian;
+                if(caret>=valstr.length()) caret=valstr.length();
+                fieldToModify.setCaretPosition(caret);
+            }
+        };
+
         /* offset */
         Container row_offset = new Container();
         row_offset.setLayout(new BoxLayout(row_offset, BoxLayout.X_AXIS));
         JLabel titleOffset = new JLabel("Current Selection : ");
-        JButton buttonSelect = new JButton("Reset");
+        JButton buttonSelect = new JButton("Rebase");
         buttonSelect.addActionListener(e -> Rebase());
         JButton buttonRevert = new JButton("Revert");
         buttonRevert.addActionListener(e -> Revert());
@@ -208,8 +271,8 @@ public class PathTweakerDialog extends DialogWrapper {
         /* viewport */
         Container row_viewport = new Container();
         row_viewport.setLayout(new BoxLayout(row_viewport, BoxLayout.X_AXIS));
-        etFieldvw = new JTextField(); etFieldvw.getDocument().addDocumentListener(inputListener);
-        etFieldvh = new JTextField(); etFieldvh.getDocument().addDocumentListener(inputListener);
+        etFieldvw = new JTextField(); etFieldvw.getDocument().addDocumentListener(inputListener); etFieldvw.addMouseWheelListener(mouseWheelListener);
+        etFieldvh = new JTextField(); etFieldvh.getDocument().addDocumentListener(inputListener); etFieldvh.addMouseWheelListener(mouseWheelListener);
         row_viewport.add(new JLabel("Viewport Width"));
         row_viewport.add(etFieldvw); etFieldvw.setText("24");
         row_viewport.add(new JLabel("Viewport Height"));
@@ -221,8 +284,8 @@ public class PathTweakerDialog extends DialogWrapper {
         JBCheckBox check_translate = new JBCheckBox();
         check_translate.setName(Integer.toString(1));
         check_translate.setSelected(getTranslate()); check_translate.addItemListener(itemListener);
-        etFieldx = new JTextField(); etFieldx.setText("0.0"); etFieldx.getDocument().addDocumentListener(inputListener);
-        etFieldy = new JTextField(); etFieldy.setText("0.0"); etFieldy.getDocument().addDocumentListener(inputListener);
+        etFieldx = new JTextField(); etFieldx.setText("0.0"); etFieldx.getDocument().addDocumentListener(inputListener); etFieldx.addMouseWheelListener(mouseWheelListener);
+        etFieldy = new JTextField(); etFieldy.setText("0.0"); etFieldy.getDocument().addDocumentListener(inputListener); etFieldy.addMouseWheelListener(mouseWheelListener);
         JLabel titleTranslate = new JLabel("TRANSLATION ");
         titleTranslate.addMouseListener(new MouseAdapter(){
             public void mouseClicked(MouseEvent e){
@@ -242,8 +305,8 @@ public class PathTweakerDialog extends DialogWrapper {
         JBCheckBox check_scale = new JBCheckBox();
         check_scale.setSelected(getTranslate()); check_scale.addItemListener(itemListener);
         check_scale.setName(Integer.toString(2));
-        etFieldscale = new JTextField(); etFieldscale.setText("1.0"); etFieldscale.getDocument().addDocumentListener(inputListener);
-        etFieldscaleY = new JTextField(); etFieldscaleY.setText("1.0"); etFieldscaleY.getDocument().addDocumentListener(inputListener);
+        etFieldscale = new JTextField(); etFieldscale.setText("1.0"); etFieldscale.getDocument().addDocumentListener(inputListener); etFieldscale.addMouseWheelListener(mouseWheelListener);
+        etFieldscaleY = new JTextField(); etFieldscaleY.setText("1.0"); etFieldscaleY.getDocument().addDocumentListener(inputListener); etFieldscaleY.addMouseWheelListener(mouseWheelListener);
         JLabel titleScale = new JLabel("SCALE  ");
         titleScale.addMouseListener(new MouseAdapter(){
             public void mouseClicked(MouseEvent e){
@@ -307,19 +370,42 @@ public class PathTweakerDialog extends DialogWrapper {
 
         Rebase();
 
+        contentPanel = panel;
+
+        //addLogView();
+
         return panel;
+    }
+
+    public void addLogView(){
+        /* logview */
+        Container row_log = new Container();
+        row_log.setLayout(new BoxLayout(row_log, BoxLayout.X_AXIS));
+        row_log.add(new JLabel("Log "));
+        row_log.add(logview = new JTextArea());
+        contentPanel.add(row_log);
     }
 
     /** Actually Execute the tweak. <br/>
      * Contemplate the words of Li Xiao Long during the process to maximize your chance of success. */
     private void doIt() {
         if(mDocument!=null && currentText!=null && currentStart<currentEnd && currentStart>=0){
-            String tweaked = tweakPath();
             Runnable runnable = () -> {
-                mDocument.deleteString(currentStart, currentEnd);
-                mDocument.insertString(currentStart, tweaked);
-                currentEnd = currentStart + tweaked.length();
-                mEditor.getSelectionModel().setSelection(currentStart, currentEnd);
+                try { //todo should not affect undo stack while auto-updating
+                    String tweaked = tweakPath();
+                    mDocument.replaceString(currentStart, currentEnd, tweaked);
+                    currentEnd = currentStart + tweaked.length();
+                    mEditor.getSelectionModel().setSelection(currentStart, currentEnd);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    if(logview!=null){
+                        ByteArrayOutputStream s = new ByteArrayOutputStream();
+                        PrintStream p = new PrintStream(s);
+                        e.printStackTrace(p);
+                        logview.setText(s.toString());
+                    }
+                    else throw e;
+                }
             };
             WriteCommandAction.runWriteCommandAction(mProject, runnable);
         }
@@ -340,17 +426,28 @@ public class PathTweakerDialog extends DialogWrapper {
     }
 
     /** Fetch and parse the selected text <br/>
-     * Texts must contain valid vector path data. */
+     * Texts must contain valid vector path data.*/
     private void Rebase() {
         currentStart=currentEnd=-1;
 
-        mEditor = mActionEvent.getData(PlatformDataKeys.EDITOR);
+        mEditor = FileEditorManager.getInstance(mProject).getSelectedTextEditor();
+
+        if (mEditor==null) mEditor = mActionEvent.getData(PlatformDataKeys.EDITOR);
 
         if (mEditor==null) return;
 
         SelectionModel selectionModel = mEditor.getSelectionModel();
 
-        mDocument = mEditor.getDocument();
+        Document document = mEditor.getDocument();
+        if(document!=mDocument){
+            String data = document.getText();
+            viewportWidth = parseFloatAttr(data, "viewportWidth", viewportWidth);
+            viewportHeight = parseFloatAttr(data, "viewportHeight", viewportHeight);
+            etFieldvw.setText(Float.toString(viewportWidth));
+            etFieldvh.setText(Float.toString(viewportHeight));
+            mDocument = document;
+            setTitle();
+        }
 
         int offsetStart = selectionModel.getSelectionStart();
 
@@ -394,7 +491,7 @@ public class PathTweakerDialog extends DialogWrapper {
             currentText = text.substring(currentStart, currentEnd);
             currentStart = offsetStart+currentStart;
             currentEnd = offsetStart+currentEnd;
-            maniOffset.setForeground(Color.BLACK);
+            maniOffset.setForeground(JBColor.BLACK);
             maniOffset.setText("["+currentStart+"-"+currentEnd+"]");
         } else {
             Invalidate();
@@ -402,13 +499,42 @@ public class PathTweakerDialog extends DialogWrapper {
         }
     }
 
-    private void Invalidate() {
-        maniOffset.setText("[INVAlID]");
-        maniOffset.setForeground(Color.RED);
+    private static float parseFloatAttr(String data, String key, float def) {
+        int idx = data.indexOf(key);
+        if(idx!=-1){
+            idx = data.indexOf('"', idx+key.length());
+            if(idx!=-1){
+                ++idx;
+                int end = data.indexOf('"', idx);
+                if(end!=-1){
+                    Float val = parsefloat(data.substring(idx, end));
+                    if(val!=null) return val;
+                }
+            }
+        }
+        return def;
     }
 
-    static String trimFloatString(String input) {
-        //CMN.Log(input);
+    private void setTitle() {
+        String brand = "Vector Path Tweaker by KnIfER";
+        //todo title shouldn't effect the initial width of a dialog. (AndroidStudio 3.6) (uncontrollable)
+        if(true) setTitle(brand); else {
+            VirtualFile d = FileDocumentManager.getInstance().getFile(mDocument);
+            if(d==null){
+                setTitle(brand);
+            } else {
+                setTitle(d.getName());
+            }
+        }
+    }
+
+    private void Invalidate() {
+        maniOffset.setText("[INVAlID]");
+        maniOffset.setForeground(JBColor.RED);
+    }
+
+    private static String trimFloatString(String input) {
+        if(debug)Log(input);
         int len = input.length();
         int st = 0;
 
@@ -422,14 +548,14 @@ public class PathTweakerDialog extends DialogWrapper {
         return ((st > 0) || (len < input.length())) ? input.substring(st, len) : input;
     }
     
-    static Float parsefloat(String text){
+    private static Float parsefloat(String text){
         try {
             return Float.parseFloat(text);
         } catch (Exception ignored) {  }
         return null;
     }
 
-    static int parsint(String text){
+    private static int parsint(String text){
         try {
             return Integer.parseInt(text);
         } catch (Exception ignored) {  }
@@ -437,7 +563,7 @@ public class PathTweakerDialog extends DialogWrapper {
     }
 
     /** The core */
-    String tweakPath() {
+    private String tweakPath() {
         Float readval = parsefloat(etFieldvw.getText());
         if(readval!=null) viewportWidth = readval;
         readval = parsefloat(etFieldvh.getText());
@@ -450,147 +576,263 @@ public class PathTweakerDialog extends DialogWrapper {
         if(readval!=null) scaler = readval;
         readval = parsefloat(etFieldscaleY.getText());
         if(readval!=null) scalerY = readval;
-        
-        float scaler  = getScale()?this.scaler:1;
-        float scalerY = getScale()?this.scalerY:1;
-        float transX  = getTranslate()?this.transX:0;
-        float transY  = getTranslate()?this.transY:0;
-        boolean transpose = getTranspose();
-        boolean flipX = getFlipX();
-        boolean flipY = getFlipY();
-        boolean keep_rel_group = getKeepOrg();
-        boolean shrink_orgs = getShrinkOrg();
 
         String pathdata = currentText;
         pathdata=pathdata.trim();
+
+        return tweak_path_internal(pathdata, viewportWidth, viewportHeight, getScale()?this.scaler:1, getScale()?this.scalerY:1, getTranslate()?this.transX:0, getTranslate()?this.transY:0
+                , getTranspose(), getFlipX(), getFlipY(), getKeepOrg(), getShrinkOrg());
+
+    }
+
+    public static String tweak_path_internal(String pathdata, float viewportWidth, float viewportHeight, float scaler,float scalerY,float transX, float transY
+            ,boolean transpose,boolean flipX, boolean flipY, boolean keep_rel_group, boolean shrink_orgs){
         StringBuilder pathbuilder = new StringBuilder();
-        Pattern reg = Pattern.compile("[MlLzscCSVvhH ]");
+        Pattern reg = Pattern.compile("[MmLlZzSsCcVvHhAaQqTt ]");
         Pattern regLower = Pattern.compile("[a-z]");
         Pattern regVertical = Pattern.compile("[Vv]");
-        Pattern regHorizontal = Pattern.compile("[Hh]");
+        //Pattern regHorizontal = Pattern.compile("[Hh]");
         Matcher m = reg.matcher(pathdata);
         int idx=0;
         String lastCommand = null;
         Float[] firstOrg=null;
         Float[] Org=null;
         float[] deltaOrg=new float[2];
+        String[] xy = new String[2];
+        int EllipticalParameterCounter=0;
+        int flipc = 0;
+        if(flipX) flipc++;
+        if(flipY) flipc++;
+        if(transpose) flipc++;
+        boolean flip = flipc%2!=0;
+        StringBuilder lastCommandBuilder = new StringBuilder();
         while(m.find()) {
             int now =m.start();
             if(idx!=-1 && now>idx) {
-                String command = pathdata.substring(idx,idx+1);
-                String[] arr = pathdata.substring(idx+1,now).split(",");
-                if(!command.equals(" ")) {
-                    if(transpose && arr.length==1) {
-                        char c;
-                        lastCommand="";
-                        for(int i=0;i<command.length();i++) {
-                            switch(c=command.charAt(i)) {
-                                case 'v':
-                                    c='h';
-                                break;
-                                case 'V':
-                                    c='H';
-                                break;
-                                case 'h':
-                                    c='v';
-                                break;
-                                case 'H':
-                                    c='V';
-                                break;
-                            }
-                            lastCommand+=c;
-                        }
-                        command=lastCommand;
-                    }
-                    lastCommand=command;
+                String currentPhrase = pathdata.substring(idx, now);
+                Log("currentPhrase::", currentPhrase);
+                if(currentPhrase.trim().length()==0){
+                    pathbuilder.append(currentPhrase);
                 }
-                boolean xiaoxie = regLower.matcher(lastCommand).matches();
-                boolean isOrg = lastCommand.equals("M");
-                boolean isfirstOrg = isOrg?firstOrg==null:false;
-                //if(isfirstOrg)CMN.Log("1st.org#1=", arr);
-                //CMN.Log("command: "+command+" "+lastCommand+" "+xiaoxie);
-                //CMN.Log(pathdata.substring(idx+1,now));
-                pathbuilder.append(command);
-                if(arr.length==2) {//x-y coordinates
-                    float x=Float.valueOf(transpose?arr[1]:arr[0]);
-                    if(isOrg) {
-                        Org=new Float[2];
-                        Org[0]=x;
-                        if(isfirstOrg) {
-                            if(shrink_orgs) {
-                                transX+=viewportWidth/2+(x-viewportWidth/2)*scaler-x;
-                            }
-                            firstOrg=Org;
-                            deltaOrg[0]=transX;
-                        }else if(keep_rel_group) {
-                            deltaOrg[0]=scaler*(x-firstOrg[0])+firstOrg[0]-x+transX;
-                        }
-                        if(flipX) x = viewportWidth-x;
-                    }else if(xiaoxie){
-                        x=x*scaler;
-                        if(flipX) x = -x;
-                    }else {
-                        x=scaler*(x-Org[0])+Org[0];
-                        if(flipX) x = viewportWidth-x;
-                    }
-                    if(!xiaoxie)x+=deltaOrg[0];
-                    pathbuilder.append(trimFloatString(String.format("%.2f", x)));
-                    pathbuilder.append(",");
-                    x=Float.valueOf(transpose?arr[0]:arr[1]);
-                    if(isOrg) {
-                        Org[1]=x;
-                        if(isfirstOrg) {
-                            if(shrink_orgs) {
-                                transY+=viewportHeight/2+(x-viewportHeight/2)*scalerY-x;
-                            }
-                            deltaOrg[1]=transY*(flipY?-1:1);
-                        }else if(keep_rel_group) {
-                            deltaOrg[1]=scalerY*(x-firstOrg[1])+firstOrg[1]-x+transY*(flipY?-1:1);
-                        }
-                        if(flipY) x = viewportHeight-x;
-                    }else if(xiaoxie){
-                        x=x*scalerY;
-                        if(flipY) x = -x;
-                    }else {
-                        x=scalerY*(x-Org[1])+Org[1];
-                        if(flipY) x = viewportHeight-x;
-                    }
-                    if(!xiaoxie)x+=deltaOrg[1];
-                    pathbuilder.append(trimFloatString(String.format("%.2f", x)));
-                }
-                else {//singleton coordinates
-                    String key = pathdata.substring(idx+1,now);
-                    if(lastCommand!=null)
-                        try {
-                            boolean isVertical = regVertical.matcher(lastCommand).matches();
-                            float val = Float.valueOf(key);
-                            if(xiaoxie)
-                                val*=(isVertical?(flipY?-scalerY:scalerY):(flipX?-scaler:scaler));
-                            else {// 处理  absolute vertical or horizontal case
-                                if(isVertical) {//垂直线
-                                    val=scalerY*(val-Org[1])+Org[1]+deltaOrg[1]*(flipY?-1:1);
-                                    if(flipY) val = viewportHeight-val;
-                                }else {//水平线
-                                    val=scalerY*(val-Org[0])+Org[0]+deltaOrg[0]*(flipX?-1:1);
-                                    if(flipX) val = viewportWidth-val;
+                else {
+                    String command = pathdata.substring(idx,idx+1);
+                    String[] arr = pathdata.substring(idx+1,now).split(",");
+                    boolean InEllipticalArc = "a".equalsIgnoreCase(lastCommand);
+                    if(!command.equals(" ")) {
+                        if(transpose && arr.length==1) {
+                            char c;
+                            lastCommandBuilder.setLength(0);
+                            for(int i = 0; i<command.length(); i++) {
+                                switch(c=command.charAt(i)) {
+                                    case 'v':
+                                        c='h';
+                                    break;
+                                    case 'V':
+                                        c='H';
+                                    break;
+                                    case 'h':
+                                        c='v';
+                                    break;
+                                    case 'H':
+                                        c='V';
+                                    break;
                                 }
+                                lastCommandBuilder.append(c);
                             }
-                            pathbuilder.append(trimFloatString(String.format("%.2f", val)));
-                        } catch (NumberFormatException e) {
-                            //CMN.Log(key);
-                            pathbuilder.append(key);
+                            lastCommand = lastCommandBuilder.toString();
+                            command=lastCommand;
                         }
-                    else
-                        pathbuilder.append(key);
+                        lastCommand=command;
+                        if("a".equalsIgnoreCase(command)){
+                            InEllipticalArc=true;
+                            EllipticalParameterCounter=0;
+                        } else {
+                            InEllipticalArc=false;
+                            EllipticalParameterCounter=0;
+                        }
+                    }
+                    boolean xiaoxie = regLower.matcher(lastCommand).matches();
+                    boolean isOrg = lastCommand.equals("M");
+                    boolean isfirstOrg = isOrg && firstOrg == null;
+                    if(debug){
+                        if(isfirstOrg)Log("1st.org#1=", Arrays.asList(arr));
+                        Log("command:", command, " lastCommand:", lastCommand,  " lower case:", xiaoxie, " arg len:", arr.length, Arrays.asList(arr), pathdata.substring(idx, now));
+                        //Log(pathdata.substring(idx+1,now));
+                    }
+                    pathbuilder.append(command);
+                    boolean proceed = true;
+                    String residueX = null;
+                    String sep=null;
+                    if(InEllipticalArc){
+                        // I admit it's a messy approach.
+                        EllipticalParameterCounter = EllipticalParameterCounter%7;
+                        // 0 . 2 . 4 . 6 [. 8] .
+                        // 0,1 - - 4 5,6 [. 8] .
+                        int jump = arr.length;
+                        String residue = null;
+                        if(EllipticalParameterCounter==0){
+                            Log(Arrays.asList(arr));
+                            xy[0]=arr[0];
+                            xy[1]=arr[1];
+                        }
+                        else if(EllipticalParameterCounter==1){
+                            xy[1] = arr[0];
+                            int len = pathbuilder.length();
+                            if(len>=2 && pathbuilder.charAt(len-1)==' '){
+                                pathbuilder.delete(len-1, len);
+                            }
+                            pathbuilder.append(",");
+                            residue = ","+arr[1];
+                        }
+                        if(EllipticalParameterCounter==0||EllipticalParameterCounter==1){
+                            float x = Float.parseFloat(transpose ? xy[1] : xy[0]) * scaler;
+                            float y = Float.parseFloat(transpose ? xy[0] : xy[1]) * scalerY;
+                            pathbuilder.append(trimFloatString(String.format("%.2f", x)));
+                            pathbuilder.append(residue==null?",":" ");
+                            pathbuilder.append(trimFloatString(String.format("%.2f", y)));
+                            if(residue!=null) pathbuilder.append(residue);
+                            proceed=false;
+                        }
+                        else if(EllipticalParameterCounter==2){
+                            pathbuilder.append(pathdata, idx+1, now);
+                            proceed=false;
+                        }
+                        else if(EllipticalParameterCounter==3){
+                            if(flip){
+                                pathbuilder.append(arr[0]).append(",");
+                                pathbuilder.append(arr[1].equals("0")?1:0);
+                            } else {
+                                pathbuilder.append(pathdata, idx+1, now);
+                            }
+                            proceed=false;
+                        }
+                        else if(EllipticalParameterCounter==4){
+                            if(flip){
+                                pathbuilder.append(arr[0].equals("0")?1:0);
+                            } else {
+                                pathbuilder.append(arr[0]);
+                            }
+                            if(arr.length==2){
+                                residueX=arr[1];
+                                pathbuilder.append(",");
+                            }
+                            proceed=false;
+                        }
+                        else if(EllipticalParameterCounter==6){
+                            int len = pathbuilder.length();
+                            if(len>=2 && pathbuilder.charAt(len-1)==' ' && pathbuilder.charAt(len-2)==','){
+                                pathbuilder.delete(len-1, len);
+                            }
+                            xy[1]=arr[0];
+                            if(arr.length==2){
+                                residueX=arr[1];
+                            }
+                            sep = " ";
+                            arr = xy;
+                        }
+                        EllipticalParameterCounter += jump;
+                    }
+                    if(proceed) {
+                        if (arr.length == 2) {//x-y coordinates
+                            float x = Float.parseFloat(transpose ? arr[1] : arr[0]);
+                            if (isOrg) {
+                                Org = new Float[2];
+                                Org[0] = x;
+                                if (isfirstOrg) {
+                                    if (shrink_orgs) {
+                                        transX += viewportWidth / 2 + (x - viewportWidth / 2) * scaler - x;
+                                    }
+                                    firstOrg = Org;
+                                    deltaOrg[0] = transX;
+                                } else if (keep_rel_group) {
+                                    deltaOrg[0] = scaler * (x - firstOrg[0]) + firstOrg[0] - x + transX;
+                                }
+                                if (flipX) x = viewportWidth - x;
+                            } else if (xiaoxie) {
+                                x = x * scaler;
+                                if (flipX) x = -x;
+                            } else {
+                                x = scaler * (x - Org[0]) + Org[0];
+                                if (flipX) x = viewportWidth - x;
+                            }
+                            if (!xiaoxie) x += deltaOrg[0];
+                            pathbuilder.append(trimFloatString(String.format("%.2f", x)));
+                            pathbuilder.append(sep==null?",":sep);
+                            x = Float.parseFloat(transpose ? arr[0] : arr[1]);
+                            if (isOrg) {
+                                Org[1] = x;
+                                if (isfirstOrg) {
+                                    if (shrink_orgs) {
+                                        transY += viewportHeight / 2 + (x - viewportHeight / 2) * scalerY - x;
+                                    }
+                                    deltaOrg[1] = transY * (flipY ? -1 : 1);
+                                } else if (keep_rel_group) {
+                                    deltaOrg[1] = scalerY * (x - firstOrg[1]) + firstOrg[1] - x + transY * (flipY ? -1 : 1);
+                                }
+                                if (flipY) x = viewportHeight - x;
+                            } else if (xiaoxie) {
+                                x = x * scalerY;
+                                if (flipY) x = -x;
+                            } else {
+                                x = scalerY * (x - Org[1]) + Org[1];
+                                if (flipY) x = viewportHeight - x;
+                            }
+                            if (!xiaoxie) x += deltaOrg[1];
+                            pathbuilder.append(trimFloatString(String.format("%.2f", x)));
+                        }
+                        else {//singleton coordinates
+                            String key = pathdata.substring(idx + 1, now);
+                            if (lastCommand != null)
+                                try {
+                                    boolean isVertical = regVertical.matcher(lastCommand).matches();
+                                    float val = Float.parseFloat(key);
+                                    if (xiaoxie)
+                                        val *= (isVertical ? (flipY ? -scalerY : scalerY) : (flipX ? -scaler : scaler));
+                                    else {// 处理  absolute vertical or horizontal case
+                                        if (isVertical) {//垂直线
+                                            val = scalerY * (val - Org[1]) + Org[1] + deltaOrg[1] * (flipY ? -1 : 1);
+                                            if (flipY) val = viewportHeight - val;
+                                        } else {//水平线
+                                            val = scalerY * (val - Org[0]) + Org[0] + deltaOrg[0] * (flipX ? -1 : 1);
+                                            if (flipX) val = viewportWidth - val;
+                                        }
+                                    }
+                                    pathbuilder.append(trimFloatString(String.format("%.2f", val)));
+                                } catch (NumberFormatException e) {
+                                    if (debug) Log(key);
+                                    pathbuilder.append(key);
+                                }
+                            else
+                                pathbuilder.append(key);
+                        }
+                    }
+                    if(residueX!=null)
+                        xy[0]=residueX;
                 }
-            }else
-                pathbuilder.append(pathdata.substring(idx,now));
-            //CMN.Log(pathdata.substring(0,));
+            }
+            else
+                pathbuilder.append(pathdata, idx, now);
+            //if(debug)Log(pathdata.substring(0,));
             idx=now;
         }
-        pathbuilder.append(pathdata.substring(idx,pathdata.length()));
-        //CMN.Log(pathbuilder);
+        pathbuilder.append(pathdata.substring(idx));
         return pathbuilder.toString();
     }
 
+
+    private static void Log(Object... o) {
+        StringBuilder msg= new StringBuilder();
+        if(o!=null)
+			for (Object value : o) {
+				if (value instanceof Exception) {
+					ByteArrayOutputStream s = new ByteArrayOutputStream();
+					PrintStream p = new PrintStream(s);
+					((Exception) value).printStackTrace(p);
+					msg.append(s.toString());
+				}
+				msg.append(value).append(" ");
+			}
+
+        System.out.println(msg);
+    }
 }
