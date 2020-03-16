@@ -34,7 +34,7 @@
 - huachao1001 : [IDEA plugin CN toturial](https://blog.csdn.net/huachao1001/article/details/53885981)
 
 # ContactMe
-- Blog: [https://www.jianshu.com/u/77921c0f8d4f](https://www.jianshu.com/u/77921c0f8d4f)
+- Blog: [https://www.jianshu.com/u/77921c0f8d4f](https://www.jianshu.com/p/275803679af8)
 - QQ: 302772670
 
 # License
