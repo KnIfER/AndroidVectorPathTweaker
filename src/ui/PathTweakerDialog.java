@@ -73,6 +73,7 @@ public class PathTweakerDialog extends DialogWrapper {
     private JTextField etFieldscale;
     private JTextField etFieldscaleY;
     private JPanel contentPanel;
+    private JButton APPLY_IMAGESIZE;
 
     private boolean  getTranslate(){
         return (firstflag&0x1)==0;
@@ -140,7 +141,7 @@ public class PathTweakerDialog extends DialogWrapper {
     
     public PathTweakerDialog(Project project, AnActionEvent actionEvent) {
         super(project, false);
-        firstflag = flagStore;
+        //firstflag = flagStore;
         mActionEvent = actionEvent;
         mProject = project;
         setResizable(true);
@@ -154,6 +155,12 @@ public class PathTweakerDialog extends DialogWrapper {
         doIt();
         flagStore = firstflag;
         super.doOKAction();
+    }
+
+    @Override
+    public void doCancelAction() {
+        super.doCancelAction();
+        flagStore = firstflag;
     }
 
     @Nullable
@@ -197,9 +204,18 @@ public class PathTweakerDialog extends DialogWrapper {
         /* let's code hard Swing UI ! */
 
         DocumentListener inputListener = new DocumentListener() {
-            @Override public void insertUpdate(DocumentEvent e) { if(getAutoUpadte()) doIt(); }
-            @Override public void removeUpdate(DocumentEvent e) { if(getAutoUpadte()) doIt(); }
+            @Override public void insertUpdate(DocumentEvent e) { onTextChanged(e); }
+            @Override public void removeUpdate(DocumentEvent e) { onTextChanged(e); }
             @Override public void changedUpdate(DocumentEvent e) {  }
+
+            private void onTextChanged(DocumentEvent e) {
+                if(APPLY_IMAGESIZE!=null && (e.getDocument()==etFieldvw.getDocument()||e.getDocument()==etFieldvh.getDocument())) {
+                    APPLY_IMAGESIZE.setEnabled(true);
+                } else if(getAutoUpadte()) {
+                    doIt();
+                }
+            }
+
         };
 
         MouseWheelListener mouseWheelListener = e -> {
@@ -277,6 +293,9 @@ public class PathTweakerDialog extends DialogWrapper {
         row_viewport.add(etFieldvw); etFieldvw.setText("24");
         row_viewport.add(new JLabel("Viewport Height"));
         row_viewport.add(etFieldvh); etFieldvh.setText("24");
+        row_viewport.add(APPLY_IMAGESIZE = new JButton("APPLY"));
+        APPLY_IMAGESIZE.setEnabled(false);
+        APPLY_IMAGESIZE.addActionListener(e -> resizeImage());
 
         /* translate */
         Container row_translate = new Container();
@@ -289,7 +308,7 @@ public class PathTweakerDialog extends DialogWrapper {
         JLabel titleTranslate = new JLabel("TRANSLATION ");
         titleTranslate.addMouseListener(new MouseAdapter(){
             public void mouseClicked(MouseEvent e){
-            check_translate.setSelected(!check_translate.isSelected());
+                check_translate.setSelected(!check_translate.isSelected());
             }
         });
         row_translate.add(check_translate);
@@ -388,9 +407,10 @@ public class PathTweakerDialog extends DialogWrapper {
 
     /** Actually Execute the tweak. <br/>
      * Contemplate the words of Li Xiao Long during the process to maximize your chance of success. */
+    private Runnable doItRunnable; 
     private void doIt() {
         if(mDocument!=null && currentText!=null && currentStart<currentEnd && currentStart>=0){
-            Runnable runnable = () -> {
+            if(doItRunnable==null) doItRunnable = () -> {
                 try { //todo should not affect undo stack while auto-updating
                     String tweaked = tweakPath();
                     mDocument.replaceString(currentStart, currentEnd, tweaked);
@@ -407,7 +427,7 @@ public class PathTweakerDialog extends DialogWrapper {
                     else throw e;
                 }
             };
-            WriteCommandAction.runWriteCommandAction(mProject, runnable);
+            WriteCommandAction.runWriteCommandAction(mProject, doItRunnable);
         }
     }
 
@@ -432,71 +452,75 @@ public class PathTweakerDialog extends DialogWrapper {
 
         mEditor = FileEditorManager.getInstance(mProject).getSelectedTextEditor();
 
-        if (mEditor==null) mEditor = mActionEvent.getData(PlatformDataKeys.EDITOR);
-
-        if (mEditor==null) return;
-
-        SelectionModel selectionModel = mEditor.getSelectionModel();
-
-        Document document = mEditor.getDocument();
-        if(document!=mDocument){
-            String data = document.getText();
-            viewportWidth = parseFloatAttr(data, "viewportWidth", viewportWidth);
-            viewportHeight = parseFloatAttr(data, "viewportHeight", viewportHeight);
-            etFieldvw.setText(Float.toString(viewportWidth));
-            etFieldvh.setText(Float.toString(viewportHeight));
-            mDocument = document;
-            setTitle();
+        if (mEditor==null) {
+            mEditor = mActionEvent.getData(PlatformDataKeys.EDITOR);
         }
 
-        int offsetStart = selectionModel.getSelectionStart();
+        if (mEditor!=null) {
+            SelectionModel selectionModel = mEditor.getSelectionModel();
 
-        String text = selectionModel.getSelectedText();
+            Document document = mEditor.getDocument();
+            if(document!=mDocument){
+                String data = document.getText();
+                viewportWidth = parseFloatAttr(data, "viewportWidth", viewportWidth);
+                viewportHeight = parseFloatAttr(data, "viewportHeight", viewportHeight);
+                etFieldvw.setText(Float.toString(viewportWidth));
+                etFieldvh.setText(Float.toString(viewportHeight));
+                mDocument = document;
+                setTitle();
+            }
 
-        if(text==null){
-            Invalidate();
-            return;
-        }
+            int offsetStart = selectionModel.getSelectionStart();
 
-        int len = text.length();
+            String text = selectionModel.getSelectedText();
 
-        int regularStart = text.indexOf("pathData");
+            if(text==null){
+                Invalidate();
+            } else {
+                int len = text.length();
 
-        if(regularStart!=-1){
-            regularStart = text.indexOf("\"", regularStart);
-            if(regularStart!=-1) {
-                regularStart+=1;
-                for (int i = regularStart; i < len; i++) {
-                    char c = text.charAt(i);
-                    if(c=='"'){
-                        currentEnd = i;
-                        break;
-                    }
-                    if(c=='z'||c=='Z'){
-                        currentEnd = i+1;
+                int regularStart = text.indexOf("pathData");
+
+                if(regularStart!=-1){
+                    regularStart = text.indexOf("\"", regularStart);
+                    if(regularStart!=-1) {
+                        regularStart+=1;
+                        for (int i = regularStart; i < len; i++) {
+                            char c = text.charAt(i);
+                            if(c=='"'){
+                                currentEnd = i;
+                                break;
+                            }
+                            if(c=='z'||c=='Z'){
+                                currentEnd = i+1;
+                            }
+                        }
+                        currentStart = regularStart;
                     }
                 }
-                currentStart = regularStart;
-            }
-        } else {
-            for (int i = 0; i < len; i++) {
-                char c = text.charAt(i);
-                if(currentStart==-1){
-                    if(c=='m'||c=='M') currentStart = i;
-                } else if(c=='z'||c=='Z') currentEnd = i+1;
-            }
-        }
+                else {
+                    for (int i = 0; i < len; i++) {
+                        char c = text.charAt(i);
+                        if(currentStart==-1){
+                            if(c=='m'||c=='M') currentStart = i;
+                        } else if(c=='z'||c=='Z') currentEnd = i+1;
+                    }
+                }
 
-        if(currentStart<currentEnd && currentStart>=0){
-            currentText = text.substring(currentStart, currentEnd);
-            currentStart = offsetStart+currentStart;
-            currentEnd = offsetStart+currentEnd;
-            maniOffset.setForeground(JBColor.BLACK);
-            maniOffset.setText("["+currentStart+"-"+currentEnd+"]");
-        } else {
-            Invalidate();
-            currentText = null;
+                if(currentStart<currentEnd && currentStart>=0){
+                    currentText = text.substring(currentStart, currentEnd);
+                    currentStart = offsetStart+currentStart;
+                    currentEnd = offsetStart+currentEnd;
+                    maniOffset.setForeground(JBColor.BLACK);
+                    maniOffset.setText("["+currentStart+"-"+currentEnd+"]");
+                } else {
+                    Invalidate();
+                    currentText = null;
+                }
+            }
         }
+        
+        APPLY_IMAGESIZE.setEnabled(false);
     }
 
     private static float parseFloatAttr(String data, String key, float def) {
@@ -513,6 +537,20 @@ public class PathTweakerDialog extends DialogWrapper {
             }
         }
         return def;
+    }
+    
+    private static void setFloatAttr(StringBuffer data, String key, float def) {
+        int idx = data.indexOf(key);
+        if(idx!=-1){
+            idx = data.indexOf("\"", idx+key.length());
+            if(idx!=-1){
+                ++idx;
+                int end = data.indexOf("\"", idx);
+                if(end!=-1){
+                    data.replace(idx, end, Float.toString(def));
+                }
+            }
+        }
     }
 
     private void setTitle() {
@@ -563,11 +601,16 @@ public class PathTweakerDialog extends DialogWrapper {
     }
 
     /** The core */
-    private String tweakPath() {
+    private void FetchUserDefViewportDimensions() {
         Float readval = parsefloat(etFieldvw.getText());
-        if(readval!=null) viewportWidth = readval;
+        if (readval != null) viewportWidth = readval;
         readval = parsefloat(etFieldvh.getText());
-        if(readval!=null) viewportHeight = readval;
+        if (readval != null) viewportHeight = readval;
+    }
+    
+    private String tweakPath() {
+        FetchUserDefViewportDimensions();
+        Float readval;
         readval = parsefloat(etFieldx.getText());
         if(readval!=null) transX = readval;
         readval = parsefloat(etFieldy.getText());
@@ -585,238 +628,324 @@ public class PathTweakerDialog extends DialogWrapper {
 
     }
 
+    /** 1024dp -> 24dp */
+    Runnable resizeImageRunnable;
+    private void resizeImage() {
+        if(resizeImageRunnable==null) {
+            resizeImageRunnable = () -> {
+                if(mEditor!=null) {
+                    boolean succ = false;
+                    
+                    Document document = mEditor.getDocument();
+
+                    String data = document.getText();
+
+                    FetchUserDefViewportDimensions();
+
+                    float documentImageWidth = parseFloatAttr(data, "viewportWidth", viewportWidth);
+
+                    float documentImageHeight = parseFloatAttr(data, "viewportHeight", viewportHeight);
+
+                    float scaleX = viewportWidth/documentImageWidth;
+
+                    float scaleY = viewportHeight/documentImageHeight;
+
+                    float transX = (viewportWidth - documentImageWidth)/2;
+
+                    float transY = (viewportHeight - documentImageHeight)/2;
+
+                    Pattern pathPat = Pattern.compile("pathData=\"(.*?)\"", Pattern.DOTALL);
+
+                    Pattern essencePat = Pattern.compile("(.*?)(?=[mM])(.*)(?<=[zZ])(.*?)", Pattern.DOTALL);
+
+                    Matcher m = pathPat.matcher(data);
+
+                    StringBuffer sb = new StringBuffer(data.length()+64);
+
+                    while(m.find()) {
+                        String dataSeg = m.group(1);
+                        
+                        m.appendReplacement(sb, "");
+                        
+                        sb.append("pathData=\"");
+                        if(dataSeg==null) {
+                            dataSeg="";
+                        }
+                        Matcher m2 = essencePat.matcher(dataSeg);
+
+                        if(m2.find()) {
+                            if(m2.group(1)!=null) {
+                                sb.append(m2.group(1));
+                            }
+
+                            String essence = m2.group(2);
+
+                            Log("Tweaking...", essence);
+
+                            essence = tweak_path_internal(essence, viewportWidth, viewportHeight, 1, 1, transX, transY
+                                    , false, false, false, getKeepOrg(), getShrinkOrg());
+                            
+                            essence = tweak_path_internal(essence, viewportWidth, viewportHeight, scaleX, scaleY, 0, 0
+                                    , false, false, false, getKeepOrg(), getShrinkOrg());
+
+                            if(!succ && !essence.equals(m2.group(2))) {
+                                succ=true;
+                            }
+                            
+                            sb.append(essence);
+
+                            if(m2.group(3)!=null) {
+                                sb.append(m2.group(3));
+                            }
+                        } 
+                        else {
+                            sb.append(dataSeg);
+                        }
+
+                        sb.append("\"");
+                    }
+                    
+                    if(succ) {
+                        m.appendTail(sb);
+                        setFloatAttr(sb, "viewportWidth", viewportWidth);
+                        setFloatAttr(sb, "viewportHeight", viewportHeight);
+                        document.setText(sb);
+                    }
+                }
+            };
+        }
+        WriteCommandAction.runWriteCommandAction(mProject, resizeImageRunnable);
+    }
+    
     public static String tweak_path_internal(String pathdata, float viewportWidth, float viewportHeight, float scaler,float scalerY,float transX, float transY
             ,boolean transpose,boolean flipX, boolean flipY, boolean keep_rel_group, boolean shrink_orgs){
-        StringBuilder pathbuilder = new StringBuilder();
-        Pattern reg = Pattern.compile("[MmLlZzSsCcVvHhAaQqTt ]");
-        Pattern regLower = Pattern.compile("[a-z]");
-        Pattern regVertical = Pattern.compile("[Vv]");
-        //Pattern regHorizontal = Pattern.compile("[Hh]");
-        Matcher m = reg.matcher(pathdata);
-        int idx=0;
-        String lastCommand = null;
-        Float[] firstOrg=null;
-        Float[] Org=null;
-        float[] deltaOrg=new float[2];
-        String[] xy = new String[2];
-        int EllipticalParameterCounter=0;
-        int flipc = 0;
-        if(flipX) flipc++;
-        if(flipY) flipc++;
-        if(transpose) flipc++;
-        boolean flip = flipc%2!=0;
-        StringBuilder lastCommandBuilder = new StringBuilder();
-        while(m.find()) {
-            int now =m.start();
-            if(idx!=-1 && now>idx) {
-                String currentPhrase = pathdata.substring(idx, now);
-                Log("currentPhrase::", currentPhrase);
-                if(currentPhrase.trim().length()==0){
-                    pathbuilder.append(currentPhrase);
-                }
-                else {
-                    String command = pathdata.substring(idx,idx+1);
-                    String[] arr = pathdata.substring(idx+1,now).split(",");
-                    boolean InEllipticalArc = "a".equalsIgnoreCase(lastCommand);
-                    if(!command.equals(" ")) {
-                        if(transpose && arr.length==1) {
-                            char c;
-                            lastCommandBuilder.setLength(0);
-                            for(int i = 0; i<command.length(); i++) {
-                                switch(c=command.charAt(i)) {
-                                    case 'v':
-                                        c='h';
-                                    break;
-                                    case 'V':
-                                        c='H';
-                                    break;
-                                    case 'h':
-                                        c='v';
-                                    break;
-                                    case 'H':
-                                        c='V';
-                                    break;
+        try {
+            StringBuilder pathbuilder = new StringBuilder();
+            Pattern reg = Pattern.compile("[MmLlZzSsCcVvHhAaQqTt ]");
+            Pattern regLower = Pattern.compile("[a-z]");
+            Pattern regVertical = Pattern.compile("[Vv]");
+            //Pattern regHorizontal = Pattern.compile("[Hh]");
+            Matcher m = reg.matcher(pathdata);
+            int idx = 0;
+            String lastCommand = null;
+            Float[] firstOrg = null;
+            Float[] Org = null;
+            float[] deltaOrg = new float[2];
+            String[] xy = new String[2];
+            int EllipticalParameterCounter = 0;
+            int flipc = 0;
+            if (flipX) flipc++;
+            if (flipY) flipc++;
+            if (transpose) flipc++;
+            boolean flip = flipc % 2 != 0;
+            StringBuilder lastCommandBuilder = new StringBuilder();
+            while (m.find()) {
+                int now = m.start();
+                if (idx != -1 && now > idx) {
+                    String currentPhrase = pathdata.substring(idx, now);
+                    Log("currentPhrase::", currentPhrase);
+                    if (currentPhrase.trim().length() == 0) {
+                        pathbuilder.append(currentPhrase);
+                    } else {
+                        String command = pathdata.substring(idx, idx + 1);
+                        String[] arr = pathdata.substring(idx + 1, now).split(",");
+                        boolean InEllipticalArc = "a".equalsIgnoreCase(lastCommand);
+                        if (!command.equals(" ")) {
+                            if (transpose && arr.length == 1) {
+                                char c;
+                                lastCommandBuilder.setLength(0);
+                                for (int i = 0; i < command.length(); i++) {
+                                    switch (c = command.charAt(i)) {
+                                        case 'v':
+                                            c = 'h';
+                                            break;
+                                        case 'V':
+                                            c = 'H';
+                                            break;
+                                        case 'h':
+                                            c = 'v';
+                                            break;
+                                        case 'H':
+                                            c = 'V';
+                                            break;
+                                    }
+                                    lastCommandBuilder.append(c);
                                 }
-                                lastCommandBuilder.append(c);
+                                lastCommand = lastCommandBuilder.toString();
+                                command = lastCommand;
                             }
-                            lastCommand = lastCommandBuilder.toString();
-                            command=lastCommand;
-                        }
-                        lastCommand=command;
-                        if("a".equalsIgnoreCase(command)){
-                            InEllipticalArc=true;
-                            EllipticalParameterCounter=0;
-                        } else {
-                            InEllipticalArc=false;
-                            EllipticalParameterCounter=0;
-                        }
-                    }
-                    boolean xiaoxie = regLower.matcher(lastCommand).matches();
-                    boolean isOrg = lastCommand.equals("M");
-                    boolean isfirstOrg = isOrg && firstOrg == null;
-                    if(debug){
-                        if(isfirstOrg)Log("1st.org#1=", Arrays.asList(arr));
-                        Log("command:", command, " lastCommand:", lastCommand,  " lower case:", xiaoxie, " arg len:", arr.length, Arrays.asList(arr), pathdata.substring(idx, now));
-                        //Log(pathdata.substring(idx+1,now));
-                    }
-                    pathbuilder.append(command);
-                    boolean proceed = true;
-                    String residueX = null;
-                    String sep=null;
-                    if(InEllipticalArc){
-                        // I admit it's a messy approach.
-                        EllipticalParameterCounter = EllipticalParameterCounter%7;
-                        // 0 . 2 . 4 . 6 [. 8] .
-                        // 0,1 - - 4 5,6 [. 8] .
-                        int jump = arr.length;
-                        String residue = null;
-                        if(EllipticalParameterCounter==0){
-                            Log(Arrays.asList(arr));
-                            xy[0]=arr[0];
-                            xy[1]=arr[1];
-                        }
-                        else if(EllipticalParameterCounter==1){
-                            xy[1] = arr[0];
-                            int len = pathbuilder.length();
-                            if(len>=2 && pathbuilder.charAt(len-1)==' '){
-                                pathbuilder.delete(len-1, len);
-                            }
-                            pathbuilder.append(",");
-                            residue = ","+arr[1];
-                        }
-                        if(EllipticalParameterCounter==0||EllipticalParameterCounter==1){
-                            float x = Float.parseFloat(transpose ? xy[1] : xy[0]) * scaler;
-                            float y = Float.parseFloat(transpose ? xy[0] : xy[1]) * scalerY;
-                            pathbuilder.append(trimFloatString(String.format("%.2f", x)));
-                            pathbuilder.append(residue==null?",":" ");
-                            pathbuilder.append(trimFloatString(String.format("%.2f", y)));
-                            if(residue!=null) pathbuilder.append(residue);
-                            proceed=false;
-                        }
-                        else if(EllipticalParameterCounter==2){
-                            pathbuilder.append(pathdata, idx+1, now);
-                            proceed=false;
-                        }
-                        else if(EllipticalParameterCounter==3){
-                            if(flip){
-                                pathbuilder.append(arr[0]).append(",");
-                                pathbuilder.append(arr[1].equals("0")?1:0);
+                            lastCommand = command;
+                            if ("a".equalsIgnoreCase(command)) {
+                                InEllipticalArc = true;
+                                EllipticalParameterCounter = 0;
                             } else {
-                                pathbuilder.append(pathdata, idx+1, now);
+                                InEllipticalArc = false;
+                                EllipticalParameterCounter = 0;
                             }
-                            proceed=false;
                         }
-                        else if(EllipticalParameterCounter==4){
-                            if(flip){
-                                pathbuilder.append(arr[0].equals("0")?1:0);
-                            } else {
-                                pathbuilder.append(arr[0]);
-                            }
-                            if(arr.length==2){
-                                residueX=arr[1];
+                        boolean xiaoxie = regLower.matcher(lastCommand).matches();
+                        boolean isOrg = lastCommand.equalsIgnoreCase("M");
+                        boolean isfirstOrg = isOrg && firstOrg == null;
+                        if (debug) {
+                            if (isfirstOrg) Log("1st.org#1=", Arrays.asList(arr));
+                            Log("command:", command, " lastCommand:", lastCommand, " lower case:", xiaoxie, " arg len:", arr.length, Arrays.asList(arr), pathdata.substring(idx, now));
+                            //Log(pathdata.substring(idx+1,now));
+                        }
+                        pathbuilder.append(command);
+                        boolean proceed = true;
+                        String residueX = null;
+                        String sep = null;
+                        if (InEllipticalArc) {
+                            // I admit it's a messy approach.
+                            EllipticalParameterCounter = EllipticalParameterCounter % 7;
+                            // 0 . 2 . 4 . 6 [. 8] .
+                            // 0,1 - - 4 5,6 [. 8] .
+                            int jump = arr.length;
+                            String residue = null;
+                            if (EllipticalParameterCounter == 0) {
+                                Log(Arrays.asList(arr));
+                                xy[0] = arr[0];
+                                xy[1] = arr[1];
+                            } else if (EllipticalParameterCounter == 1) {
+                                xy[1] = arr[0];
+                                int len = pathbuilder.length();
+                                if (len >= 2 && pathbuilder.charAt(len - 1) == ' ') {
+                                    pathbuilder.delete(len - 1, len);
+                                }
                                 pathbuilder.append(",");
+                                residue = "," + arr[1];
                             }
-                            proceed=false;
-                        }
-                        else if(EllipticalParameterCounter==6){
-                            int len = pathbuilder.length();
-                            if(len>=2 && pathbuilder.charAt(len-1)==' ' && pathbuilder.charAt(len-2)==','){
-                                pathbuilder.delete(len-1, len);
-                            }
-                            xy[1]=arr[0];
-                            if(arr.length==2){
-                                residueX=arr[1];
-                            }
-                            sep = " ";
-                            arr = xy;
-                        }
-                        EllipticalParameterCounter += jump;
-                    }
-                    if(proceed) {
-                        if (arr.length == 2) {//x-y coordinates
-                            float x = Float.parseFloat(transpose ? arr[1] : arr[0]);
-                            if (isOrg) {
-                                Org = new Float[2];
-                                Org[0] = x;
-                                if (isfirstOrg) {
-                                    if (shrink_orgs) {
-                                        transX += viewportWidth / 2 + (x - viewportWidth / 2) * scaler - x;
-                                    }
-                                    firstOrg = Org;
-                                    deltaOrg[0] = transX;
-                                } else if (keep_rel_group) {
-                                    deltaOrg[0] = scaler * (x - firstOrg[0]) + firstOrg[0] - x + transX;
+                            if (EllipticalParameterCounter == 0 || EllipticalParameterCounter == 1) {
+                                float x = Float.parseFloat(transpose ? xy[1] : xy[0]) * scaler;
+                                float y = Float.parseFloat(transpose ? xy[0] : xy[1]) * scalerY;
+                                pathbuilder.append(trimFloatString(String.format("%.2f", x)));
+                                pathbuilder.append(residue == null ? "," : " ");
+                                pathbuilder.append(trimFloatString(String.format("%.2f", y)));
+                                if (residue != null) pathbuilder.append(residue);
+                                proceed = false;
+                            } else if (EllipticalParameterCounter == 2) {
+                                pathbuilder.append(pathdata, idx + 1, now);
+                                proceed = false;
+                            } else if (EllipticalParameterCounter == 3) {
+                                if (flip) {
+                                    pathbuilder.append(arr[0]).append(",");
+                                    pathbuilder.append(arr[1].equals("0") ? 1 : 0);
+                                } else {
+                                    pathbuilder.append(pathdata, idx + 1, now);
                                 }
-                                if (flipX) x = viewportWidth - x;
-                            } else if (xiaoxie) {
-                                x = x * scaler;
-                                if (flipX) x = -x;
-                            } else {
-                                x = scaler * (x - Org[0]) + Org[0];
-                                if (flipX) x = viewportWidth - x;
-                            }
-                            if (!xiaoxie) x += deltaOrg[0];
-                            pathbuilder.append(trimFloatString(String.format("%.2f", x)));
-                            pathbuilder.append(sep==null?",":sep);
-                            x = Float.parseFloat(transpose ? arr[0] : arr[1]);
-                            if (isOrg) {
-                                Org[1] = x;
-                                if (isfirstOrg) {
-                                    if (shrink_orgs) {
-                                        transY += viewportHeight / 2 + (x - viewportHeight / 2) * scalerY - x;
-                                    }
-                                    deltaOrg[1] = transY * (flipY ? -1 : 1);
-                                } else if (keep_rel_group) {
-                                    deltaOrg[1] = scalerY * (x - firstOrg[1]) + firstOrg[1] - x + transY * (flipY ? -1 : 1);
+                                proceed = false;
+                            } else if (EllipticalParameterCounter == 4) {
+                                if (flip) {
+                                    pathbuilder.append(arr[0].equals("0") ? 1 : 0);
+                                } else {
+                                    pathbuilder.append(arr[0]);
                                 }
-                                if (flipY) x = viewportHeight - x;
-                            } else if (xiaoxie) {
-                                x = x * scalerY;
-                                if (flipY) x = -x;
-                            } else {
-                                x = scalerY * (x - Org[1]) + Org[1];
-                                if (flipY) x = viewportHeight - x;
+                                if (arr.length == 2) {
+                                    residueX = arr[1];
+                                    pathbuilder.append(",");
+                                }
+                                proceed = false;
+                            } else if (EllipticalParameterCounter == 6) {
+                                int len = pathbuilder.length();
+                                if (len >= 2 && pathbuilder.charAt(len - 1) == ' ' && pathbuilder.charAt(len - 2) == ',') {
+                                    pathbuilder.delete(len - 1, len);
+                                }
+                                xy[1] = arr[0];
+                                if (arr.length == 2) {
+                                    residueX = arr[1];
+                                }
+                                sep = " ";
+                                arr = xy;
                             }
-                            if (!xiaoxie) x += deltaOrg[1];
-                            pathbuilder.append(trimFloatString(String.format("%.2f", x)));
+                            EllipticalParameterCounter += jump;
                         }
-                        else {//singleton coordinates
-                            String key = pathdata.substring(idx + 1, now);
-                            if (lastCommand != null)
-                                try {
-                                    boolean isVertical = regVertical.matcher(lastCommand).matches();
-                                    float val = Float.parseFloat(key);
-                                    if (xiaoxie)
-                                        val *= (isVertical ? (flipY ? -scalerY : scalerY) : (flipX ? -scaler : scaler));
-                                    else {// 处理  absolute vertical or horizontal case
-                                        if (isVertical) {//垂直线
-                                            val = scalerY * (val - Org[1]) + Org[1] + deltaOrg[1] * (flipY ? -1 : 1);
-                                            if (flipY) val = viewportHeight - val;
-                                        } else {//水平线
-                                            val = scalerY * (val - Org[0]) + Org[0] + deltaOrg[0] * (flipX ? -1 : 1);
-                                            if (flipX) val = viewportWidth - val;
+                        if (proceed) {
+                            if (arr.length == 2) {//x-y coordinates
+                                float x = Float.parseFloat(transpose ? arr[1] : arr[0]);
+                                if (isOrg) {
+                                    Org = new Float[2];
+                                    Org[0] = x;
+                                    if (isfirstOrg) {
+                                        if (shrink_orgs) {
+                                            transX += viewportWidth / 2 + (x - viewportWidth / 2) * scaler - x;
                                         }
+                                        firstOrg = Org;
+                                        deltaOrg[0] = transX;
+                                    } else if (keep_rel_group) {
+                                        deltaOrg[0] = scaler * (x - firstOrg[0]) + firstOrg[0] - x + transX;
                                     }
-                                    pathbuilder.append(trimFloatString(String.format("%.2f", val)));
-                                } catch (NumberFormatException e) {
-                                    if (debug) Log(key);
-                                    pathbuilder.append(key);
+                                    if (flipX) x = viewportWidth - x;
+                                } else if (xiaoxie) {
+                                    x = x * scaler;
+                                    if (flipX) x = -x;
+                                } else {
+                                    x = scaler * (x - Org[0]) + Org[0];
+                                    if (flipX) x = viewportWidth - x;
                                 }
-                            else
-                                pathbuilder.append(key);
+                                if (!xiaoxie) x += deltaOrg[0];
+                                pathbuilder.append(trimFloatString(String.format("%.2f", x)));
+                                pathbuilder.append(sep == null ? "," : sep);
+                                x = Float.parseFloat(transpose ? arr[0] : arr[1]);
+                                if (isOrg) {
+                                    Org[1] = x;
+                                    if (isfirstOrg) {
+                                        if (shrink_orgs) {
+                                            transY += viewportHeight / 2 + (x - viewportHeight / 2) * scalerY - x;
+                                        }
+                                        deltaOrg[1] = transY * (flipY ? -1 : 1);
+                                    } else if (keep_rel_group) {
+                                        deltaOrg[1] = scalerY * (x - firstOrg[1]) + firstOrg[1] - x + transY * (flipY ? -1 : 1);
+                                    }
+                                    if (flipY) x = viewportHeight - x;
+                                } else if (xiaoxie) {
+                                    x = x * scalerY;
+                                    if (flipY) x = -x;
+                                } else {
+                                    x = scalerY * (x - Org[1]) + Org[1];
+                                    if (flipY) x = viewportHeight - x;
+                                }
+                                if (!xiaoxie) x += deltaOrg[1];
+                                pathbuilder.append(trimFloatString(String.format("%.2f", x)));
+                            } else {//singleton coordinates
+                                String key = pathdata.substring(idx + 1, now);
+                                if (lastCommand != null)
+                                    try {
+                                        boolean isVertical = regVertical.matcher(lastCommand).matches();
+                                        float val = Float.parseFloat(key);
+                                        if (xiaoxie)
+                                            val *= (isVertical ? (flipY ? -scalerY : scalerY) : (flipX ? -scaler : scaler));
+                                        else {// 处理  absolute vertical or horizontal case
+                                            if (isVertical) {//垂直线
+                                                val = scalerY * (val - Org[1]) + Org[1] + deltaOrg[1] * (flipY ? -1 : 1);
+                                                if (flipY) val = viewportHeight - val;
+                                            } else {//水平线
+                                                val = scalerY * (val - Org[0]) + Org[0] + deltaOrg[0] * (flipX ? -1 : 1);
+                                                if (flipX) val = viewportWidth - val;
+                                            }
+                                        }
+                                        pathbuilder.append(trimFloatString(String.format("%.2f", val)));
+                                    } catch (NumberFormatException e) {
+                                        if (debug) Log(key);
+                                        pathbuilder.append(key);
+                                    }
+                                else
+                                    pathbuilder.append(key);
+                            }
                         }
+                        if (residueX != null)
+                            xy[0] = residueX;
                     }
-                    if(residueX!=null)
-                        xy[0]=residueX;
-                }
+                } else
+                    pathbuilder.append(pathdata, idx, now);
+                //if(debug)Log(pathdata.substring(0,));
+                idx = now;
             }
-            else
-                pathbuilder.append(pathdata, idx, now);
-            //if(debug)Log(pathdata.substring(0,));
-            idx=now;
+            pathbuilder.append(pathdata.substring(idx));
+            return pathbuilder.toString();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return pathdata;
         }
-        pathbuilder.append(pathdata.substring(idx));
-        return pathbuilder.toString();
     }
 
 

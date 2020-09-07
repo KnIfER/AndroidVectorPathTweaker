@@ -9,6 +9,8 @@ import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelListener;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 public class HappyTest {
@@ -22,6 +24,18 @@ public class HappyTest {
 
 
 
+
+	@Test
+	public void TestPat(){
+		Pattern essencePat = Pattern.compile("(.*)?(?=[mM])(.*)(?<=[zZ])(.*)?", Pattern.DOTALL);
+
+		Matcher m = essencePat.matcher("asadasdMasdsaZ");
+
+		while(m.find()) {
+			String dataSeg = m.group(1);
+			Log(dataSeg);
+		}
+	}
 
 	@Test
 	public void TestCoreMethod(){
