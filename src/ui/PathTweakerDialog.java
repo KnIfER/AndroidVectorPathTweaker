@@ -52,7 +52,7 @@ public class PathTweakerDialog extends DialogWrapper {
     private static boolean debug = true;
     private AnActionEvent       mActionEvent;
     private Project             mProject;
-    private Document            mDocument;
+    Document            mDocument;
     private Editor              mEditor;
     private int currentStart;
     private int currentEnd;
@@ -76,6 +76,10 @@ public class PathTweakerDialog extends DialogWrapper {
     private JTextField etFieldscaleY;
     private JPanel contentPanel;
     private JButton APPLY_IMAGESIZE;
+    
+    private static int InstanceCount=0;
+    
+    StringBuilder instanceBuffer = new StringBuilder();
 
     @Multiline(flagPos=0, shift=1) public boolean getTranslate(){ firstflag=firstflag; throw new RuntimeException(); }
     @Multiline(flagPos=0, shift=1) public void setTranslate(boolean val){ firstflag=firstflag; throw new RuntimeException(); }
@@ -117,6 +121,24 @@ public class PathTweakerDialog extends DialogWrapper {
         setModal(false);
         //getWindow().setIconImage(Toolkit.getDefaultToolkit().getImage("/icons/icon.png"));
         init();
+        InstanceCount = Math.max(0, InstanceCount+1);
+        getWindow().addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosed(WindowEvent e) {
+                onClose();
+            }
+        });
+    }
+
+    private void onClose() {
+        Log("onClose!!!");
+        InstanceCount--;
+        if(ToolsDialog!=null) {
+            if(InstanceCount<=0||ToolsDialog.isDisposed()||ToolsDialog.isDockedTo(PathTweakerDialog.this)) {
+                ToolsDialog.close(1);
+                ToolsDialog.ReleaseInstance();
+            }
+        }
     }
 
     @Override
@@ -183,10 +205,32 @@ public class PathTweakerDialog extends DialogWrapper {
             @Override public void changedUpdate(DocumentEvent e) {  }
 
             private void onTextChanged(DocumentEvent e) {
-                if(APPLY_IMAGESIZE!=null && (e.getDocument()==etFieldvw.getDocument()||e.getDocument()==etFieldvh.getDocument())) {
-                    APPLY_IMAGESIZE.setEnabled(true);
-                } else if(getAutoUpadte()) {
-                    doIt();
+                javax.swing.text.Document doc = e.getDocument();
+                if(doc==etFieldvw.getDocument()||doc==etFieldvh.getDocument()) {
+                    if(APPLY_IMAGESIZE!=null) {
+                        APPLY_IMAGESIZE.setEnabled(true);
+                    }
+                } else {
+                    boolean b1=false;
+                    if(getSyncTrans() && (b1=(doc==etFieldx.getDocument()||doc==etFieldy.getDocument()))) {
+                        if(doc==etFieldx.getDocument()) {
+                            //e.
+                        } else {
+                            
+                        }
+                    }
+                    
+                    if(!b1 && getSyncScale() && (doc==etFieldscale.getDocument()||doc==etFieldscaleY.getDocument())) {
+                        if(doc==etFieldscale.getDocument()) {
+                            
+                        } else {
+                            
+                        }
+                    }
+                    
+                    if(getAutoUpadte()) {
+                        doIt();
+                    }
                 }
             }
 
@@ -349,7 +393,6 @@ public class PathTweakerDialog extends DialogWrapper {
 
     public void addComponentListener(ComponentListener dockMover) {
         getWindow().addComponentListener(dockMover);
-        dockMover.componentMoved(new ComponentEvent(getWindow(), ActionEvent.ACTION_PERFORMED));
     }
 
     public void removeComponentListener(ComponentListener dockMover) {
@@ -498,6 +541,12 @@ public class PathTweakerDialog extends DialogWrapper {
             WriteCommandAction.runWriteCommandAction(mProject, doItRunnable);
         }
     }
+    
+    void setDocumentText(CharSequence text) {
+        if(mDocument!=null){
+            WriteCommandAction.runWriteCommandAction(mProject, ()-> mDocument.setText(text));
+        }
+    }
 
     /** Revert the string that is first fetched via {@link #Rebase} */
     private void Revert() {
@@ -593,7 +642,7 @@ public class PathTweakerDialog extends DialogWrapper {
         APPLY_IMAGESIZE.setEnabled(false);
     }
 
-    private static float parseFloatAttr(String data, String key, float def) {
+    static float parseFloatAttr(String data, String key, float def) {
         int idx = data.indexOf(key);
         if(idx!=-1){
             idx = data.indexOf('"', idx+key.length());
@@ -700,7 +749,7 @@ public class PathTweakerDialog extends DialogWrapper {
         String pathdata = currentText;
         pathdata=pathdata.trim();
 
-        return tweak_path_internal(pathdata, viewportWidth, viewportHeight, getScale()?this.scaler:1, getScale()?this.scalerY:1, getTranslate()?this.transX:0, getTranslate()?this.transY:0
+        return tweak_path_internal(instanceBuffer, pathdata, viewportWidth, viewportHeight, getScale()?this.scaler:1, getScale()?this.scalerY:1, getTranslate()?this.transX:0, getTranslate()?this.transY:0
                 , getTranspose(), getFlipX(), getFlipY(), getKeepOrg(), getShrinkOrg());
 
     }
@@ -759,10 +808,10 @@ public class PathTweakerDialog extends DialogWrapper {
 
                             Log("Tweaking...", essence);
 
-                            essence = tweak_path_internal(essence, viewportWidth, viewportHeight, 1, 1, transX, transY
+                            essence = tweak_path_internal(instanceBuffer, essence, viewportWidth, viewportHeight, 1, 1, transX, transY
                                     , false, false, false, getKeepOrg(), getShrinkOrg());
                             
-                            essence = tweak_path_internal(essence, viewportWidth, viewportHeight, scaleX, scaleY, 0, 0
+                            essence = tweak_path_internal(instanceBuffer, essence, viewportWidth, viewportHeight, scaleX, scaleY, 0, 0
                                     , false, false, false, getKeepOrg(), getShrinkOrg());
 
                             if(!succ && !essence.equals(m2.group(2))) {
@@ -793,14 +842,19 @@ public class PathTweakerDialog extends DialogWrapper {
         }
         WriteCommandAction.runWriteCommandAction(mProject, resizeImageRunnable);
     }
+
+    private final static Pattern reg = Pattern.compile("[MmLlZzSsCcVvHhAaQqTt ]");
+    private final static Pattern regLower = Pattern.compile("[a-z]");
+    private final static Pattern regVertical = Pattern.compile("[Vv]");
     
-    public static String tweak_path_internal(String pathdata, float viewportWidth, float viewportHeight, float scaler,float scalerY,float transX, float transY
-            ,boolean transpose,boolean flipX, boolean flipY, boolean keep_rel_group, boolean shrink_orgs){
+    public static String tweak_path_internal(StringBuilder pathbuilder, String pathdata, float viewportWidth, float viewportHeight, float scaler, float scalerY, float transX, float transY
+            , boolean transpose, boolean flipX, boolean flipY, boolean keep_rel_group, boolean shrink_orgs){
         try {
-            StringBuilder pathbuilder = new StringBuilder();
-            Pattern reg = Pattern.compile("[MmLlZzSsCcVvHhAaQqTt ]");
-            Pattern regLower = Pattern.compile("[a-z]");
-            Pattern regVertical = Pattern.compile("[Vv]");
+            if(pathbuilder==null) {
+                pathbuilder = new StringBuilder();
+            } else {
+                pathbuilder.setLength(0);
+            }
             //Pattern regHorizontal = Pattern.compile("[Hh]");
             Matcher m = reg.matcher(pathdata);
             int idx = 0;
@@ -820,7 +874,7 @@ public class PathTweakerDialog extends DialogWrapper {
                 int now = m.start();
                 if (idx != -1 && now > idx) {
                     String currentPhrase = pathdata.substring(idx, now);
-                    Log("currentPhrase::", currentPhrase);
+                    if(debug) Log("currentPhrase::", currentPhrase);
                     if (currentPhrase.trim().length() == 0) {
                         pathbuilder.append(currentPhrase);
                     } else {
@@ -880,7 +934,7 @@ public class PathTweakerDialog extends DialogWrapper {
                             int jump = arr.length;
                             String residue = null;
                             if (EllipticalParameterCounter == 0) {
-                                Log(Arrays.asList(arr));
+                                if(debug) Log(Arrays.asList(arr));
                                 xy[0] = arr[0];
                                 xy[1] = arr[1];
                             } else if (EllipticalParameterCounter == 1) {
