@@ -1,10 +1,4 @@
-<<<<<<< HEAD
-# AndroidLocalizePlugin
-Android customize vector drawable plugin. support multiple pathData grammars, no need to manually modify the data. ([中文文档](https://github.com/KnIfER/AndroidVectorPathTweaker/blob/master/README_CN.md))
-=======
-# Android VectorPathTweaker Plugin
-Android customize vector drawable plugin. support multiple pathData gramma, no need to manually modify the data. ([中文文档](https://github.com/KnIfER/AndroidVectorPathTweaker/blob/master/README_CN.md))
->>>>>>> 8fb141348dac9055898f4a9ae85f64ba3dfa804b
+# Android customize vector drawable plugin. support multiple pathData grammars, no need to manually modify the data. ([中文文档](https://github.com/KnIfER/AndroidVectorPathTweaker/blob/master/README_CN.md))
 
 # Feature
 - Support to translate, scale, flip and transpose android vector drawables.
@@ -37,14 +31,10 @@ Android customize vector drawable plugin. support multiple pathData gramma, no n
 
 # Thanks
 - Airsaid：[AndroidLocalizePlugin (as a nice template)](https://github.com/Airsaid/AndroidLocalizePlugin)
-<<<<<<< HEAD
 - huachao1001 : [IDEA plugin CN toturial](https://blog.csdn.net/huachao1001/article/details/53885981)
-=======
-- huachao1001 : [IDEA CN TUTs](https://blog.csdn.net/huachao1001/article/details/53885981)
->>>>>>> 8fb141348dac9055898f4a9ae85f64ba3dfa804b
 
 # ContactMe
-- Blog: [https://www.jianshu.com/u/77921c0f8d4f](https://www.jianshu.com/u/77921c0f8d4f)
+- Blog: [https://www.jianshu.com/u/77921c0f8d4f](https://www.jianshu.com/p/275803679af8)
 - QQ: 302772670
 
 # License

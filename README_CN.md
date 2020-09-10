@@ -36,7 +36,7 @@ Android 向量图标自定义调整插件。 支持多种绘图语法，无需�
 - huachao1001 : [IDEA 插件开发中文教程](https://blog.csdn.net/huachao1001/article/details/53885981)
 
 # 联系我
-- Blog: [https://www.jianshu.com/u/77921c0f8d4f](https://www.jianshu.com/u/77921c0f8d4f)
+- Blog: [https://www.jianshu.com/u/77921c0f8d4f](https://www.jianshu.com/p/275803679af8)
 - QQ: 302772670
 
 # 许可证
