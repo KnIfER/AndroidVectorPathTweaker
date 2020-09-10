@@ -31,6 +31,7 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.ui.JBColor;
 import com.intellij.ui.components.JBCheckBox;
 import com.intellij.util.ui.JBInsets;
+import org.adrianwalker.multilinestring.Multiline;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
@@ -65,8 +66,8 @@ public class PathTweakerDialog extends DialogWrapper {
     private float transX;
     private float transY;
 
-    private static int flagStore;
-    private int firstflag;
+    private static long flagStore;
+    private long firstflag;
     private JTextField etFieldvw;
     private JTextField etFieldvh;
     private JTextField etFieldx;
@@ -76,85 +77,36 @@ public class PathTweakerDialog extends DialogWrapper {
     private JPanel contentPanel;
     private JButton APPLY_IMAGESIZE;
 
-    private boolean  getTranslate(){
-        return (firstflag&0x1)==0;
-    }
-    private void  setTranslate(boolean val){
-        firstflag&=~0x1;
-        if(!val) firstflag|=0x1;
-    }
+    @Multiline(flagPos=0, shift=1) public boolean getTranslate(){ firstflag=firstflag; throw new RuntimeException(); }
+    @Multiline(flagPos=0, shift=1) public void setTranslate(boolean val){ firstflag=firstflag; throw new RuntimeException(); }
 
-    private boolean  getScale(){
-        return (firstflag&0x2)==0;
-    }
-    private void  setScale(boolean val){
-        firstflag&=~0x2;
-        if(!val) firstflag|=0x2;
-    }
+    @Multiline(flagPos=1, shift=1) public boolean getScale(){ firstflag=firstflag; throw new RuntimeException(); }
+    @Multiline(flagPos=1, shift=1) public void setScale(boolean val){ firstflag=firstflag; throw new RuntimeException(); }
 
-    private boolean  getTranspose(){
-        return (firstflag&0x4)!=0;
-    }
-    private void  setTranspose(boolean val){
-        firstflag&=~0x4;
-        if(val) firstflag|=0x4;
-    }
+    @Multiline(flagPos=2, shift=0) public boolean getTranspose(){ firstflag=firstflag; throw new RuntimeException(); }
+    @Multiline(flagPos=2, shift=0) public void setTranspose(boolean val){ firstflag=firstflag; throw new RuntimeException(); }
 
-    private boolean  getFlipX(){
-        return (firstflag&0x8)!=0;
-    }
-    private void  setFlipX(boolean val){
-        firstflag&=~0x8;
-        if(val) firstflag|=0x8;
-    }
+    @Multiline(flagPos=3, shift=0) public boolean getFlipX(){ firstflag=firstflag; throw new RuntimeException(); }
+    @Multiline(flagPos=3, shift=0) public void setFlipX(boolean val){ firstflag=firstflag; throw new RuntimeException(); }
 
-    private boolean  getFlipY(){
-        return (firstflag&0x10)!=0;
-    }
-    private void  setFlipY(boolean val){
-        firstflag&=~0x10;
-        if(val) firstflag|=0x10;
-    }
+    @Multiline(flagPos=4, shift=0) public boolean getFlipY(){ firstflag=firstflag; throw new RuntimeException(); }
+    @Multiline(flagPos=4, shift=0) public void setFlipY(boolean val){ firstflag=firstflag; throw new RuntimeException(); }
 
-    private boolean  getKeepOrg(){
-        return (firstflag&0x20)==0;
-    }
-    private void  setKeepOrg(boolean val){
-        firstflag&=~0x20;
-        if(!val) firstflag|=0x20;
-    }
+    @Multiline(flagPos=5, shift=1) public boolean getKeepOrg(){ firstflag=firstflag; throw new RuntimeException(); }
+    @Multiline(flagPos=5, shift=1) public void setKeepOrg(boolean val){ firstflag=firstflag; throw new RuntimeException(); }
 
-    private boolean  getShrinkOrg(){
-        return (firstflag&0x40)==0;
-    }
-    private void  setShrinkOrg(boolean val){
-        firstflag&=~0x40;
-        if(!val) firstflag|=0x40;
-    }
 
-    private boolean  getAutoUpadte(){
-        return (firstflag&0x80)==0;
-    }
-    private void  setAutoUpadte(boolean val){
-        firstflag&=~0x80;
-        if(!val) firstflag|=0x80;
-    }
+    @Multiline(flagPos=6, shift=1) public boolean getShrinkOrg(){ firstflag=firstflag; throw new RuntimeException(); }
+    @Multiline(flagPos=6, shift=1) public void setShrinkOrg(boolean val){ firstflag=firstflag; throw new RuntimeException(); }
 
-    private boolean  getSyncTrans(){
-        return (firstflag&0x100)!=0;
-    }
-    private void  setSyncTrans(boolean val){
-        firstflag&=~0x100;
-        if(val) firstflag|=0x100;
-    }
-    
-    private boolean  getSyncScale(){
-        return (firstflag&0x200)!=0;
-    }
-    private void  setSyncScale(boolean val){
-        firstflag&=~0x200;
-        if(val) firstflag|=0x200;
-    }
+    @Multiline(flagPos=7, shift=1) public boolean getAutoUpadte(){ firstflag=firstflag; throw new RuntimeException(); }
+    @Multiline(flagPos=7, shift=1) public void setAutoUpadte(boolean val){ firstflag=firstflag; throw new RuntimeException(); }
+
+    @Multiline(flagPos=8, shift=0) public boolean getSyncTrans(){ firstflag=firstflag; throw new RuntimeException(); }
+    @Multiline(flagPos=8, shift=0) public void setSyncTrans(boolean val){ firstflag=firstflag; throw new RuntimeException(); }
+
+    @Multiline(flagPos=9, shift=0) public boolean getSyncScale(){ firstflag=firstflag; throw new RuntimeException(); }
+    @Multiline(flagPos=9, shift=0) public void setSyncScale(boolean val){ firstflag=firstflag; throw new RuntimeException(); }
     
     public PathTweakerDialog(Project project, AnActionEvent actionEvent) {
         super(project, false);
@@ -297,10 +249,11 @@ public class PathTweakerDialog extends DialogWrapper {
         
         /* offset */
         Container row_offset = layoutEater.startNewLayout();
-        layoutEater.eatLabel("Current Selection : ");
+        layoutEater.eatLabel("Selected Path : ");
         row_offset.add(maniOffset = new JLabel());
         layoutEater.eatJButton("Rebase", e -> Rebase());
         layoutEater.eatJButton("Revert", e -> Revert());
+        layoutEater.eatJButton("Tools", e -> showTool());
 
         /* viewport */
         Container row_viewport = layoutEater.startNewLayout();
@@ -386,6 +339,10 @@ public class PathTweakerDialog extends DialogWrapper {
         return panel;
     }
 
+    private void showTool() {
+        refetchImageSize();
+    }
+
     private void refetchImageSize() {
         if(mDocument!=null) {
             String data = mDocument.getText();
@@ -425,29 +382,29 @@ public class PathTweakerDialog extends DialogWrapper {
         JTextField etFloat;
         private JButton jbutton;
 
-        public LayouteatMan(ItemListener itemListener, DocumentListener inputListener, MouseWheelListener mouseWheelListener) {
+        LayouteatMan(ItemListener itemListener, DocumentListener inputListener, MouseWheelListener mouseWheelListener) {
             _itemListener = itemListener;
             _inputListener = inputListener;
             _mouseWheelListener = mouseWheelListener;
         }
 
-        public Container startNewLayout () {
+        Container startNewLayout () {
             fft = new Container();
             fft.setLayout(new BoxLayout(fft, BoxLayout.X_AXIS));
             return fft;
         }
 
-        public void eatCheckable(int id, boolean checked) {
+        void eatCheckable(int id, boolean checked) {
             check = new JBCheckBox();
             check.setName(Integer.toString(id)); check.setSelected(checked); check.addItemListener(_itemListener);
             fft.add(check);
         }
 
-        public void eatLabel(String text) {
+        void eatLabel(String text) {
             fft.add(label=new JLabel(text));
         }
 
-        public void eatCheckLabel(int id, boolean checked, String text, boolean checkLabel) {
+        void eatCheckLabel(int id, boolean checked, String text, boolean checkLabel) {
             eatLabel(text);
             eatCheckable(id, checked);
             if(checkLabel) {
@@ -455,7 +412,7 @@ public class PathTweakerDialog extends DialogWrapper {
             }
         }
         
-        public void eatLabelCheck(int id, boolean flipX, String text, boolean checkLabel) {
+        void eatLabelCheck(int id, boolean flipX, String text, boolean checkLabel) {
             eatCheckable(id, flipX);
             eatLabel(text);
             if(checkLabel) {
@@ -463,20 +420,20 @@ public class PathTweakerDialog extends DialogWrapper {
             }
         }
 
-        public void eatButton(String text, ActionListener actionListener) {
+        void eatButton(String text, ActionListener actionListener) {
             button = new Button(text);
             button.addActionListener(actionListener);
             fft.add(button);
         }
 
-        public JButton eatJButton(String text, ActionListener actionListener) {
+        JButton eatJButton(String text, ActionListener actionListener) {
             jbutton = new JButton(text);
             jbutton.addActionListener(actionListener);
             fft.add(jbutton);
             return jbutton;
         }
         
-        public JTextField eatEt(String text) {
+        JTextField eatEt(String text) {
             etFloat = new JTextField(text);
             etFloat.getDocument().addDocumentListener(_inputListener);
             etFloat.addMouseWheelListener(_mouseWheelListener);
@@ -575,6 +532,8 @@ public class PathTweakerDialog extends DialogWrapper {
 
                 int regularStart = text.indexOf("pathData");
 
+                int pathcc=0;
+                
                 if(regularStart!=-1){
                     regularStart = text.indexOf("\"", regularStart);
                     if(regularStart!=-1) {
@@ -587,6 +546,7 @@ public class PathTweakerDialog extends DialogWrapper {
                             }
                             if(c=='z'||c=='Z'){
                                 currentEnd = i+1;
+                                pathcc++;
                             }
                         }
                         currentStart = regularStart;
@@ -597,7 +557,10 @@ public class PathTweakerDialog extends DialogWrapper {
                         char c = text.charAt(i);
                         if(currentStart==-1){
                             if(c=='m'||c=='M') currentStart = i;
-                        } else if(c=='z'||c=='Z') currentEnd = i+1;
+                        } else if(c=='z'||c=='Z') {
+                            currentEnd = i+1;
+                            pathcc++;
+                        }
                     }
                 }
 
@@ -648,16 +611,23 @@ public class PathTweakerDialog extends DialogWrapper {
     }
 
     private void setTitle() {
+        //setResizable(false); useless. fuck
         String brand = "Vector Path Tweaker by KnIfER";
         //todo title shouldn't effect the initial width of a dialog. (AndroidStudio 3.6) (uncontrollable)
-        if(true) setTitle(brand); else {
+        //todo adptive title
+       // if(true) setTitle(brand); else {
             VirtualFile d = FileDocumentManager.getInstance().getFile(mDocument);
             if(d==null){
                 setTitle(brand);
             } else {
-                setTitle(d.getName());
+                String name=d.getName();
+                int maxNum = 40;
+                if(name.length()>=maxNum) {
+                    name = name.substring(0, maxNum);
+                }
+                setTitle(name);
             }
-        }
+        //}
     }
 
     private void Invalidate() {
@@ -677,7 +647,7 @@ public class PathTweakerDialog extends DialogWrapper {
                 break;
             }
         }
-        return ((st > 0) || (len < input.length())) ? input.substring(st, len) : input;
+        return /*((st > 0) || (*/len < input.length()/*))*/ ? input.substring(st, len) : input;
     }
     
     private static Float parsefloat(String text){

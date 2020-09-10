@@ -25,8 +25,4 @@ public interface Constants {// 俺也不知道这个类有啥用
 
     String PLUGIN_ID = "com.github.knziha.vectorpathtweaker";
 
-    String KEY_SELECTED_LANGUAGES = PLUGIN_ID.concat(".selected_languages");
-
-    String KEY_IS_OVERWRITE_EXISTING_STRING = PLUGIN_ID.concat(".is_overwrite_existing_string");
-
 }
