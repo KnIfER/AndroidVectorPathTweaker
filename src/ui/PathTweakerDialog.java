@@ -131,7 +131,8 @@ public class PathTweakerDialog extends DialogWrapper {
         super.doCancelAction();
         flagStore = firstflag;
     }
-
+    
+    
     @Nullable
     @Override
     protected JComponent createCenterPanel() {
@@ -175,8 +176,6 @@ public class PathTweakerDialog extends DialogWrapper {
             }
             if(getAutoUpadte()) doIt();
         };
-
-        /* let's code hard Swing UI ! */
 
         DocumentListener inputListener = new DocumentListener() {
             @Override public void insertUpdate(DocumentEvent e) { onTextChanged(e); }
@@ -246,6 +245,8 @@ public class PathTweakerDialog extends DialogWrapper {
         };
 
         LayouteatMan layoutEater = new LayouteatMan(itemListener, inputListener, mouseWheelListener);
+        
+        /* let's code hard Swing UI ! */
         
         /* offset */
         Container row_offset = layoutEater.startNewLayout();
@@ -340,7 +341,19 @@ public class PathTweakerDialog extends DialogWrapper {
     }
 
     private void showTool() {
-        refetchImageSize();
+        if(ToolsDialog==null) ToolsDialog = new PathToolDialog(mProject);
+        ToolsDialog.syncAndToggle(this);
+    }
+
+    static PathToolDialog ToolsDialog;
+
+    public void addComponentListener(ComponentListener dockMover) {
+        getWindow().addComponentListener(dockMover);
+        dockMover.componentMoved(new ComponentEvent(getWindow(), ActionEvent.ACTION_PERFORMED));
+    }
+
+    public void removeComponentListener(ComponentListener dockMover) {
+        getWindow().removeComponentListener(dockMover);
     }
 
     private void refetchImageSize() {
@@ -657,7 +670,7 @@ public class PathTweakerDialog extends DialogWrapper {
         return null;
     }
 
-    private static int parsint(String text){
+    static int parsint(String text){
         try {
             return Integer.parseInt(text);
         } catch (Exception ignored) {  }
