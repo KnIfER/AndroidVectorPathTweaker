@@ -30,6 +30,7 @@ import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.ui.JBColor;
 import com.intellij.ui.components.JBCheckBox;
+import com.intellij.util.ui.JBInsets;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
@@ -138,6 +139,22 @@ public class PathTweakerDialog extends DialogWrapper {
         firstflag&=~0x80;
         if(!val) firstflag|=0x80;
     }
+
+    private boolean  getSyncTrans(){
+        return (firstflag&0x100)!=0;
+    }
+    private void  setSyncTrans(boolean val){
+        firstflag&=~0x100;
+        if(val) firstflag|=0x100;
+    }
+    
+    private boolean  getSyncScale(){
+        return (firstflag&0x200)!=0;
+    }
+    private void  setSyncScale(boolean val){
+        firstflag&=~0x200;
+        if(val) firstflag|=0x200;
+    }
     
     public PathTweakerDialog(Project project, AnActionEvent actionEvent) {
         super(project, false);
@@ -196,6 +213,12 @@ public class PathTweakerDialog extends DialogWrapper {
                 break;
                 case 7:
                     setShrinkOrg(checked);
+                break;
+                case 8:
+                    setSyncTrans(checked);
+                break;
+                case 9:
+                    setSyncScale(checked);
                 break;
             }
             if(getAutoUpadte()) doIt();
@@ -270,114 +293,81 @@ public class PathTweakerDialog extends DialogWrapper {
             }
         };
 
+        LayouteatMan layoutEater = new LayouteatMan(itemListener, inputListener, mouseWheelListener);
+        
         /* offset */
-        Container row_offset = new Container();
-        row_offset.setLayout(new BoxLayout(row_offset, BoxLayout.X_AXIS));
-        JLabel titleOffset = new JLabel("Current Selection : ");
-        JButton buttonSelect = new JButton("Rebase");
-        buttonSelect.addActionListener(e -> Rebase());
-        JButton buttonRevert = new JButton("Revert");
-        buttonRevert.addActionListener(e -> Revert());
-        maniOffset = new JLabel();
-        row_offset.add(titleOffset);
-        row_offset.add(maniOffset);
-        row_offset.add(buttonRevert);
-        row_offset.add(buttonSelect);
+        Container row_offset = layoutEater.startNewLayout();
+        layoutEater.eatLabel("Current Selection : ");
+        row_offset.add(maniOffset = new JLabel());
+        layoutEater.eatJButton("Rebase", e -> Rebase());
+        layoutEater.eatJButton("Revert", e -> Revert());
 
         /* viewport */
-        Container row_viewport = new Container();
-        row_viewport.setLayout(new BoxLayout(row_viewport, BoxLayout.X_AXIS));
-        etFieldvw = new JTextField(); etFieldvw.getDocument().addDocumentListener(inputListener); etFieldvw.addMouseWheelListener(mouseWheelListener);
-        etFieldvh = new JTextField(); etFieldvh.getDocument().addDocumentListener(inputListener); etFieldvh.addMouseWheelListener(mouseWheelListener);
-        row_viewport.add(new JLabel("Viewport Width"));
-        row_viewport.add(etFieldvw); etFieldvw.setText("24");
-        row_viewport.add(new JLabel("Viewport Height"));
-        row_viewport.add(etFieldvh); etFieldvh.setText("24");
-        row_viewport.add(APPLY_IMAGESIZE = new JButton("APPLY"));
-        APPLY_IMAGESIZE.setEnabled(false);
-        APPLY_IMAGESIZE.addActionListener(e -> resizeImage());
-
+        Container row_viewport = layoutEater.startNewLayout();
+        layoutEater.eatLabel("Viewport Width");
+        layoutEater.label.addMouseListener(new MouseAdapter() {
+            long lastClickTime;
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                long now = System.currentTimeMillis();
+                if(now-lastClickTime<450) {
+                    refetchImageSize();
+                    lastClickTime = 0;
+                } else {
+                    lastClickTime = now;
+                }
+            }
+        });
+        etFieldvw = layoutEater.eatEt("24.0");
+        row_viewport.add(new JLabel("Height"));
+        etFieldvh = layoutEater.eatEt("24.0");
+        APPLY_IMAGESIZE = layoutEater.eatJButton("APPLY", e -> resizeImage());
+        
         /* translate */
-        Container row_translate = new Container();
-        row_translate.setLayout(new BoxLayout(row_translate, BoxLayout.X_AXIS));
-        JBCheckBox check_translate = new JBCheckBox();
-        check_translate.setName(Integer.toString(1));
-        check_translate.setSelected(getTranslate()); check_translate.addItemListener(itemListener);
-        etFieldx = new JTextField(); etFieldx.setText("0.0"); etFieldx.getDocument().addDocumentListener(inputListener); etFieldx.addMouseWheelListener(mouseWheelListener);
-        etFieldy = new JTextField(); etFieldy.setText("0.0"); etFieldy.getDocument().addDocumentListener(inputListener); etFieldy.addMouseWheelListener(mouseWheelListener);
-        JLabel titleTranslate = new JLabel("TRANSLATION ");
-        titleTranslate.addMouseListener(new MouseAdapter(){
-            public void mouseClicked(MouseEvent e){
-                check_translate.setSelected(!check_translate.isSelected());
-            }
-        });
-        row_translate.add(check_translate);
-        row_translate.add(titleTranslate);
-        row_translate.add(new JLabel("X:"));
-        row_translate.add(etFieldx);
-        row_translate.add(new JLabel("Y:"));
-        row_translate.add(etFieldy);
-
+        Container row_translate = layoutEater.startNewLayout();
+        layoutEater.eatLabelCheck(1, getTranslate(), "TRANSLATION ", true);
+        JBCheckBox LabelCheck = layoutEater.check;
+        layoutEater.eatLabel("X:");
+        etFieldx = layoutEater.eatEt("0.0");
+        layoutEater.eatLabel("Y:");
+        etFieldy = layoutEater.eatEt("0.0");
+        row_translate.add(decorated_reset_btn(e -> {
+            etFieldx.setText("0.0");
+            etFieldy.setText("0.0");
+            LabelCheck.setSelected(true);
+        }));
+        
         /* scale */
-        Container row_scale = new Container();
-        row_scale.setLayout(new BoxLayout(row_scale, BoxLayout.X_AXIS));
-        JBCheckBox check_scale = new JBCheckBox();
-        check_scale.setSelected(getTranslate()); check_scale.addItemListener(itemListener);
-        check_scale.setName(Integer.toString(2));
-        etFieldscale = new JTextField(); etFieldscale.setText("1.0"); etFieldscale.getDocument().addDocumentListener(inputListener); etFieldscale.addMouseWheelListener(mouseWheelListener);
-        etFieldscaleY = new JTextField(); etFieldscaleY.setText("1.0"); etFieldscaleY.getDocument().addDocumentListener(inputListener); etFieldscaleY.addMouseWheelListener(mouseWheelListener);
-        JLabel titleScale = new JLabel("SCALE  ");
-        titleScale.addMouseListener(new MouseAdapter(){
-            public void mouseClicked(MouseEvent e){
-            check_scale.setSelected(!check_scale.isSelected());
-            }
-        });
-        row_scale.add(check_scale);
-        row_scale.add(titleScale);
-        row_scale.add(new JLabel("X:"));
-        row_scale.add(etFieldscale);
-        row_scale.add(new JLabel("Y:"));
-        row_scale.add(etFieldscaleY);
+        Container row_scale = layoutEater.startNewLayout();
+        layoutEater.eatLabelCheck(2, getScale(), "SCALE  ", true);
+        JBCheckBox LabelCheck1 = layoutEater.check;
+        layoutEater.eatLabel("X:");
+        etFieldscale = layoutEater.eatEt("1.0");
+        layoutEater.eatLabel("Y:");
+        etFieldscaleY = layoutEater.eatEt("1.0");
+        row_scale.add(decorated_reset_btn(e -> {
+            etFieldscale.setText("1.0");
+            etFieldscaleY.setText("1.0");
+            LabelCheck1.setSelected(true);
+        }));
 
         /* flipx flipy transpose */
-        Container fft = new Container();
-        fft.setLayout(new BoxLayout(fft, BoxLayout.X_AXIS));
-        JBCheckBox check = new JBCheckBox();
-        check.setName(Integer.toString(3)); check.setSelected(getFlipX()); check.addItemListener(itemListener);
-        fft.add(new JLabel("FLIP X: ")); fft.add(check);
-        check = new JBCheckBox();
-        check.setName(Integer.toString(4)); check.setSelected(getFlipY()); check.addItemListener(itemListener);
-        fft.add(new JLabel("  FLIP Y: ")); fft.add(check);
-        check = new JBCheckBox();
-        check.setName(Integer.toString(5)); check.setSelected(getTranspose()); check.addItemListener(itemListener);
-        fft.add(new JLabel("  TRANSPOSE: ")); fft.add(check);
+        Container fft = layoutEater.startNewLayout();
+        layoutEater.eatCheckLabel(3, getFlipX(), "FLIP X: ", true);
+        layoutEater.eatCheckLabel(4, getFlipY(), "  FLIP Y: ", true);
+        layoutEater.eatCheckLabel(5, getTranspose(), "  TRANSPOSE: ", true);
+        layoutEater.eatCheckLabel(8, getSyncTrans(), "   Sync Trans: ", true);
 
         /* keeporg shrinkorg */
-        Container ks = new Container();
-        ks.setLayout(new BoxLayout(ks, BoxLayout.X_AXIS));
-        check = new JBCheckBox();
-        check.setName(Integer.toString(6)); check.setSelected(getKeepOrg()); check.addItemListener(itemListener);
-        ks.add(new JLabel("KEEP ORIGIN: ")); ks.add(check);
-        check = new JBCheckBox();
-        check.setName(Integer.toString(7)); check.setSelected(getShrinkOrg()); check.addItemListener(itemListener);
-        ks.add(new JLabel("    SHRINK ORIGIN: ")); ks.add(check);
+        Container ks = layoutEater.startNewLayout();
+        layoutEater.eatCheckLabel(6, getKeepOrg(), "KEEP ORIGIN: ", false);
+        layoutEater.eatCheckLabel(7, getShrinkOrg(), "    SHRINK ORIGIN: ", false);
+        layoutEater.eatCheckLabel(9, getSyncScale(), "  Sync Scale: ", true);
 
         /* auto update and do it */
-        Container ad = new Container();
-        ad.setLayout(new BoxLayout(ad, BoxLayout.X_AXIS));
-        JBCheckBox check_auto = new JBCheckBox();
-        check_auto.setName(Integer.toString(0)); check_auto.setSelected(getAutoUpadte()); check_auto.addItemListener(itemListener);
-        JLabel titleAuto = new JLabel("AUTO UPDATE ");
-        titleAuto.addMouseListener(new MouseAdapter(){
-            public void mouseClicked(MouseEvent e){
-                check_auto.setSelected(!check_auto.isSelected());
-            }
-        });
-        Button executeBtn = new Button("DO IT！");
-        executeBtn.addActionListener(e -> doIt());
-        ad.add(check_auto);
-        ad.add(titleAuto);
-        ad.add(executeBtn);
+        Container ad = layoutEater.startNewLayout();
+        layoutEater.eatLabelCheck(0, getAutoUpadte(), "AUTO UPDATE ", true);
+        layoutEater.eatButton("DO IT！", e -> doIt());
 
         panel.add(row_offset);
         panel.add(row_viewport);
@@ -394,6 +384,114 @@ public class PathTweakerDialog extends DialogWrapper {
         //addLogView();
 
         return panel;
+    }
+
+    private void refetchImageSize() {
+        if(mDocument!=null) {
+            String data = mDocument.getText();
+            viewportWidth = parseFloatAttr(data, "viewportWidth", viewportWidth);
+            viewportHeight = parseFloatAttr(data, "viewportHeight", viewportHeight);
+            etFieldvw.setText(Float.toString(viewportWidth));
+            etFieldvh.setText(Float.toString(viewportHeight));
+            APPLY_IMAGESIZE.setEnabled(false);
+        }
+    }
+
+
+    static class CheckableLable extends MouseAdapter {
+        JBCheckBox check;
+        CheckableLable(JBCheckBox item) {
+            check = item;
+        }
+        static JLabel instantiate(String text, JBCheckBox item) {
+            JLabel ret = new JLabel(text);
+            ret.addMouseListener(new CheckableLable(item));
+            return ret;
+        }
+        
+        public void mouseClicked(MouseEvent e){
+            check.setSelected(!check.isSelected());
+        }
+    }
+    
+    static class LayouteatMan {
+        ItemListener _itemListener;
+        DocumentListener _inputListener;
+        MouseWheelListener _mouseWheelListener;
+        Container fft;
+        JBCheckBox check;
+        Button button;
+        JLabel label;
+        JTextField etFloat;
+        private JButton jbutton;
+
+        public LayouteatMan(ItemListener itemListener, DocumentListener inputListener, MouseWheelListener mouseWheelListener) {
+            _itemListener = itemListener;
+            _inputListener = inputListener;
+            _mouseWheelListener = mouseWheelListener;
+        }
+
+        public Container startNewLayout () {
+            fft = new Container();
+            fft.setLayout(new BoxLayout(fft, BoxLayout.X_AXIS));
+            return fft;
+        }
+
+        public void eatCheckable(int id, boolean checked) {
+            check = new JBCheckBox();
+            check.setName(Integer.toString(id)); check.setSelected(checked); check.addItemListener(_itemListener);
+            fft.add(check);
+        }
+
+        public void eatLabel(String text) {
+            fft.add(label=new JLabel(text));
+        }
+
+        public void eatCheckLabel(int id, boolean checked, String text, boolean checkLabel) {
+            eatLabel(text);
+            eatCheckable(id, checked);
+            if(checkLabel) {
+                label.addMouseListener(new CheckableLable(check));
+            }
+        }
+        
+        public void eatLabelCheck(int id, boolean flipX, String text, boolean checkLabel) {
+            eatCheckable(id, flipX);
+            eatLabel(text);
+            if(checkLabel) {
+                label.addMouseListener(new CheckableLable(check));
+            }
+        }
+
+        public void eatButton(String text, ActionListener actionListener) {
+            button = new Button(text);
+            button.addActionListener(actionListener);
+            fft.add(button);
+        }
+
+        public JButton eatJButton(String text, ActionListener actionListener) {
+            jbutton = new JButton(text);
+            jbutton.addActionListener(actionListener);
+            fft.add(jbutton);
+            return jbutton;
+        }
+        
+        public JTextField eatEt(String text) {
+            etFloat = new JTextField(text);
+            etFloat.getDocument().addDocumentListener(_inputListener);
+            etFloat.addMouseWheelListener(_mouseWheelListener);
+            fft.add(etFloat);
+            return etFloat;
+        }
+    }
+
+    private JButton decorated_reset_btn(ActionListener actionListener) {
+        JButton jb = new JButton("⟳");
+        int pad=0;
+        jb.setMargin(new JBInsets(pad, pad, pad, pad));
+        jb.addActionListener(actionListener);
+        jb.setPreferredSize(new Dimension(jb.getPreferredSize().width/2, jb.getPreferredSize().height));
+        return jb;
     }
 
     public void addLogView(){
@@ -461,12 +559,8 @@ public class PathTweakerDialog extends DialogWrapper {
 
             Document document = mEditor.getDocument();
             if(document!=mDocument){
-                String data = document.getText();
-                viewportWidth = parseFloatAttr(data, "viewportWidth", viewportWidth);
-                viewportHeight = parseFloatAttr(data, "viewportHeight", viewportHeight);
-                etFieldvw.setText(Float.toString(viewportWidth));
-                etFieldvh.setText(Float.toString(viewportHeight));
                 mDocument = document;
+                refetchImageSize();
                 setTitle();
             }
 
