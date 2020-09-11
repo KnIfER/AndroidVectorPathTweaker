@@ -683,19 +683,23 @@ public class PathTweakerDialog extends DialogWrapper {
     }
 
     private void setTitle() {
-        //setResizable(false); useless. fuck
         String brand = "Vector Path Tweaker by KnIfER";
         //todo title shouldn't effect the initial width of a dialog. (AndroidStudio 3.6) (uncontrollable)
-        //todo adptive title
        // if(true) setTitle(brand); else {
             VirtualFile d = FileDocumentManager.getInstance().getFile(mDocument);
             if(d==null){
                 setTitle(brand);
             } else {
                 String name=d.getName();
-                int maxNum = 40;
-                if(name.length()>=maxNum) {
-                    name = name.substring(0, maxNum);
+                int maxNum = 45;
+                int length = name.length();
+                if(length >=maxNum) {
+                    maxNum =  (maxNum-3)/2;
+                    instanceBuffer.setLength(0);
+                    instanceBuffer.append(name, 0, maxNum);
+                    instanceBuffer.append("...");
+                    instanceBuffer.append(name, length-maxNum, length);
+                    name = instanceBuffer.toString();
                 }
                 setTitle(name);
             }
