@@ -37,6 +37,7 @@ import org.jetbrains.annotations.Nullable;
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.text.BadLocationException;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.ByteArrayOutputStream;
@@ -114,7 +115,7 @@ public class PathTweakerDialog extends DialogWrapper {
     
     public PathTweakerDialog(Project project, AnActionEvent actionEvent) {
         super(project, false);
-        //firstflag = flagStore;
+        firstflag = flagStore&0b1111100000;
         mActionEvent = actionEvent;
         mProject = project;
         setResizable(true);
@@ -211,21 +212,30 @@ public class PathTweakerDialog extends DialogWrapper {
                         APPLY_IMAGESIZE.setEnabled(true);
                     }
                 } else {
-                    boolean b1=false;
-                    if(getSyncTrans() && (b1=(doc==etFieldx.getDocument()||doc==etFieldy.getDocument()))) {
+                    //simply copy data
+                    JTextField doc1 = null;
+                    if(getSyncTrans()) {
                         if(doc==etFieldx.getDocument()) {
-                            //e.
-                        } else {
-                            
+                            doc1=etFieldy;
+                        } else if(doc==etFieldy.getDocument()){
+                            doc1=etFieldx;
                         }
                     }
                     
-                    if(!b1 && getSyncScale() && (doc==etFieldscale.getDocument()||doc==etFieldscaleY.getDocument())) {
+                    if(doc1==null && getSyncScale()) {
                         if(doc==etFieldscale.getDocument()) {
-                            
-                        } else {
-                            
+                            doc1=etFieldscaleY;
+                        } else if(doc==etFieldscaleY.getDocument()){
+                            doc1=etFieldscale;
                         }
+                    }
+
+                    if(doc1!=null) {
+                        doc1.getDocument().removeDocumentListener(this);
+                        try {
+                            doc1.setText(doc.getText(0, doc.getLength()));
+                        } catch (BadLocationException ignored) {  }
+                        doc1.getDocument().addDocumentListener(this);
                     }
                     
                     if(getAutoUpadte()) {
@@ -391,11 +401,11 @@ public class PathTweakerDialog extends DialogWrapper {
 
     static PathToolDialog ToolsDialog;
 
-    public void addComponentListener(ComponentListener dockMover) {
+    void addComponentListener(ComponentListener dockMover) {
         getWindow().addComponentListener(dockMover);
     }
 
-    public void removeComponentListener(ComponentListener dockMover) {
+    void removeComponentListener(ComponentListener dockMover) {
         getWindow().removeComponentListener(dockMover);
     }
 
