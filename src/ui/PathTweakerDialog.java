@@ -552,9 +552,15 @@ public class PathTweakerDialog extends DialogWrapper {
         }
     }
     
-    void setDocumentText(CharSequence text) {
+    void setDocumentText(CharSequence text, int selOffset) {
         if(mDocument!=null){
-            WriteCommandAction.runWriteCommandAction(mProject, ()-> mDocument.setText(text));
+            WriteCommandAction.runWriteCommandAction(mProject, ()-> {
+                mDocument.setText(text);
+                if(currentStart<currentEnd && currentStart>=0) {
+                    currentStart+=selOffset;
+                    currentEnd+=selOffset;
+                }
+            });
         }
     }
 

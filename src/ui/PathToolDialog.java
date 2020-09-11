@@ -154,7 +154,7 @@ public class PathToolDialog extends DialogWrapper {
                         universal_buffer.setLength(0);
                         universal_buffer.append(data, 0, removeSt-1);
                         universal_buffer.append(data, removeEd+1, length);
-                        tweaker.setDocumentText(universal_buffer);
+                        tweaker.setDocumentText(universal_buffer, -(removeEd-removeSt+2));
                     }
                 }
                 if(!removed) {
@@ -170,7 +170,7 @@ public class PathToolDialog extends DialogWrapper {
                                 universal_buffer.append(data, 0, insIdx);
                                 universal_buffer.append(text);
                                 universal_buffer.append(data, insIdx, length);
-                                tweaker.setDocumentText(universal_buffer);
+                                tweaker.setDocumentText(universal_buffer, text.length());
                             }
                         }
                     }
