@@ -122,7 +122,11 @@ public class PathToolDialog extends DialogWrapper {
         layoutEater.eatJButton("Insert/Remove Background Canvas", e-> InjectBG(true) );
         layoutEater.eatJButton("  / Copy", e-> InjectBG(false) );
 
+        Container cPtx = layoutEater.startNewLayout();
+        layoutEater.eatJButton("Copy last initial path data", e-> copyText(attachedTweaker.currentText) );
+        
         panel.add(vTbg);
+        //panel.add(cPtx);
 
 
         return panel;
@@ -176,11 +180,15 @@ public class PathToolDialog extends DialogWrapper {
                     }
                 }
             } else {
-                Clipboard clip = Toolkit.getDefaultToolkit().getSystemClipboard();
-                Transferable tText = new StringSelection(prepareCanvas(data).toString());
-                clip.setContents(tText, null);
+                copyText(prepareCanvas(data).toString());
             }
         }
+    }
+
+    private void copyText(String text) {
+        Clipboard clip = Toolkit.getDefaultToolkit().getSystemClipboard();
+        Transferable tText = new StringSelection(text);
+        clip.setContents(tText, null);
     }
 
     private StringBuilder prepareCanvas(String docData) {

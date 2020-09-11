@@ -59,7 +59,7 @@ public class PathTweakerDialog extends DialogWrapper {
     private int currentEnd;
     private JLabel maniOffset;
     private JTextArea logview;
-    private String currentText;
+    String currentText;
 
     private float viewportHeight=24, viewportWidth=24;
     private float scaler =  1f;
