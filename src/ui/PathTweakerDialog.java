@@ -50,7 +50,7 @@ import java.util.regex.Pattern;
  * @author KnIfER
  */
 public class PathTweakerDialog extends DialogWrapper {
-    private static boolean debug = true;
+    private static boolean debug = false;
     private AnActionEvent       mActionEvent;
     private Project             mProject;
     Document            mDocument;
@@ -132,7 +132,7 @@ public class PathTweakerDialog extends DialogWrapper {
     }
 
     private void onClose() {
-        Log("onClose!!!");
+        //Log("onClose!!!");
         InstanceCount--;
         if(ToolsDialog!=null) {
             if(InstanceCount<=0||ToolsDialog.isDisposed()||ToolsDialog.isDockedTo(PathTweakerDialog.this)) {
@@ -604,7 +604,7 @@ public class PathTweakerDialog extends DialogWrapper {
             String text = selectionModel.getSelectedText();
 
             if(text==null){
-                Invalidate();
+                InvalidateSelection();
             } else {
                 int len = text.length();
 
@@ -649,7 +649,7 @@ public class PathTweakerDialog extends DialogWrapper {
                     maniOffset.setForeground(JBColor.BLACK);
                     maniOffset.setText("["+currentStart+"-"+currentEnd+"]");
                 } else {
-                    Invalidate();
+                    InvalidateSelection();
                     currentText = null;
                 }
             }
@@ -712,9 +712,10 @@ public class PathTweakerDialog extends DialogWrapper {
         //}
     }
 
-    private void Invalidate() {
+    private void InvalidateSelection() {
         maniOffset.setText("[INVAlID]");
         maniOffset.setForeground(JBColor.RED);
+        currentStart=currentEnd=-2;
     }
 
     private static String trimFloatString(String input) {
@@ -855,6 +856,7 @@ public class PathTweakerDialog extends DialogWrapper {
                         m.appendTail(sb);
                         setFloatAttr(sb, "viewportWidth", viewportWidth);
                         setFloatAttr(sb, "viewportHeight", viewportHeight);
+                        InvalidateSelection();
                         document.setText(sb);
                     }
                 }

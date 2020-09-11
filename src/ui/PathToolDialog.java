@@ -123,10 +123,11 @@ public class PathToolDialog extends DialogWrapper {
         layoutEater.eatJButton("  / Copy", e-> InjectBG(false) );
 
         Container cPtx = layoutEater.startNewLayout();
+        layoutEater.eatJButton("Generate SVG  ", e-> {} );
         layoutEater.eatJButton("Copy last initial path data", e-> copyText(attachedTweaker.currentText) );
         
         panel.add(vTbg);
-        //panel.add(cPtx);
+        panel.add(cPtx);
 
 
         return panel;
@@ -201,5 +202,13 @@ public class PathToolDialog extends DialogWrapper {
 
     boolean isDockedTo(PathTweakerDialog dlg) {
         return dlg==attachedTweaker;
+    }
+
+    public boolean isDisposed() {
+        try{
+            return super.isDisposed();
+        } catch (Exception e) {
+            return false;
+        }
     }
 }
