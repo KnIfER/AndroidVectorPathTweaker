@@ -130,16 +130,19 @@ public class PathToolDialog extends DialogWrapper {
         layoutEater.eatJButton("Unformat coords to remove commas ( L0,0 -> L0 0 )", e-> ForCoords(false) );
         
         Container cPtx = layoutEater.startNewLayout();
-        layoutEater.eatJButton("Export SVG...  ", e-> {} );
+        layoutEater.eatJButton("Export SVG...  ", e-> ShowSvgExporter() );
         layoutEater.eatJButton("Copy last initial path data", e-> copyText(attachedTweaker.currentText) );
 
         panel.add(vTbg);
         panel.add(ft1);
         panel.add(ft2);
-        panel.add(cPtx);
+        //panel.add(cPtx);
 
         return panel;
+    }
 
+    private void ShowSvgExporter() {
+        
     }
 
     /** Remove or insert ',' between coords. */
