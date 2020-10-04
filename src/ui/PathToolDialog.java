@@ -10,9 +10,11 @@ import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.Transferable;
 import java.awt.event.*;
+import java.util.Arrays;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import static ui.PathTweakerDialog.parseFloatAttr;
-import static ui.PathTweakerDialog.parsint;
+import static ui.PathTweakerDialog.*;
 
 
 public class PathToolDialog extends DialogWrapper {
@@ -122,18 +124,78 @@ public class PathToolDialog extends DialogWrapper {
         layoutEater.eatJButton("Insert/Remove Background Canvas", e-> InjectBG(true) );
         layoutEater.eatJButton("  / Copy", e-> InjectBG(false) );
 
-        Container cPtx = layoutEater.startNewLayout();
-        layoutEater.eatJButton("Generate SVG  ", e-> {} );
-        layoutEater.eatJButton("Copy last initial path data", e-> copyText(attachedTweaker.currentText) );
+        Container ft1 = layoutEater.startNewLayout();
+        layoutEater.eatJButton("Format coords to get processable data (L0 0 -> L0,0)", e-> ForCoords(true) );
+        Container ft2 = layoutEater.startNewLayout();
+        layoutEater.eatJButton("Unformat coords to remove commas ( L0,0 -> L0 0 )", e-> ForCoords(false) );
         
-        panel.add(vTbg);
-        panel.add(cPtx);
+        Container cPtx = layoutEater.startNewLayout();
+        layoutEater.eatJButton("Export SVG...  ", e-> {} );
+        layoutEater.eatJButton("Copy last initial path data", e-> copyText(attachedTweaker.currentText) );
 
+        panel.add(vTbg);
+        panel.add(ft1);
+        panel.add(ft2);
+        panel.add(cPtx);
 
         return panel;
 
     }
-    
+
+    /** Remove or insert ',' between coords. */
+    private void ForCoords(boolean format) {
+        PathTweakerDialog tweaker = attachedTweaker;
+        if(tweaker!=null && tweaker.mDocument!=null) {
+            String pathdata = tweaker.currentText;
+            if(pathdata!=null) {
+                if(format) {
+                    StringBuilder pathbuilder = universal_buffer;
+                    pathbuilder.setLength(0);
+                    pathdata = pathdata.replaceAll("[\\s]+", " ");
+                    pathdata = pathdata.replaceAll(" ?([a-zA-Z]) ?", "$1");
+                    Matcher m = Pattern.compile("[a-zA-Z ]").matcher(pathdata);
+                    int idx = 0;
+                    int numberCount=0;
+                    while (m.find()) {
+                        int now = m.start();
+                        if (idx != -1 && now > idx) {
+                            //String currentPhrase = pathdata.substring(idx, now);
+                            String command = pathdata.substring(idx, idx + 1);
+                            String arr = pathdata.substring(idx + 1, now);
+                            if (!command.equals(" ")) {
+                                //lastCommand = command;
+                                numberCount=0;
+                                if(parsefloat(arr)!=null) {
+                                    numberCount++;
+                                }
+                                pathbuilder.append(command);
+                            } else {
+                                pathbuilder.append((numberCount+1)%2==0?","
+                                        : command);
+                                if(parsefloat(arr)!=null) {
+                                    numberCount++;
+                                }
+                            }
+                            pathbuilder.append(arr);
+                        } else
+                            pathbuilder.append(pathdata, idx, now);
+                        //if(debug)Log(pathdata.substring(0,));
+                        idx = now;
+                    }
+                    pathbuilder.append(pathdata.substring(idx));
+                    String newData = pathbuilder.toString();
+                    if(true) {
+                        newData=newData.replaceAll("(:?<[\\S])([a-zA-Z])", "$1");
+                    }
+                    tweaker.replaceSelectedPathdata(newData);
+                }
+                else {
+                    tweaker.replaceSelectedPathdata(pathdata.replace(',', ' '));
+                }
+            }
+        }
+    }
+
     StringBuilder universal_buffer = new StringBuilder(4096);
     
     

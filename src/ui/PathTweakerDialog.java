@@ -306,9 +306,9 @@ public class PathTweakerDialog extends DialogWrapper {
         Container row_offset = layoutEater.startNewLayout();
         layoutEater.eatLabel("Selected Path : ");
         row_offset.add(maniOffset = new JLabel());
+        layoutEater.eatJButton("Tools", e -> showTool());
         layoutEater.eatJButton("Rebase", e -> Rebase());
         layoutEater.eatJButton("Revert", e -> Revert());
-        layoutEater.eatJButton("Tools", e -> showTool());
 
         /* viewport */
         Container row_viewport = layoutEater.startNewLayout();
@@ -446,7 +446,12 @@ public class PathTweakerDialog extends DialogWrapper {
         Button button;
         JLabel label;
         JTextField etFloat;
-        private JButton jbutton;
+        JButton jbutton;
+
+        LayouteatMan Wrap(Container cont) {
+            fft = cont;
+            return this;
+        }
 
         LayouteatMan(ItemListener itemListener, DocumentListener inputListener, MouseWheelListener mouseWheelListener) {
             _itemListener = itemListener;
@@ -564,6 +569,20 @@ public class PathTweakerDialog extends DialogWrapper {
         }
     }
 
+    /** Replace selection to tweaked string. */
+    void replaceSelectedPathdata(String text) {
+        if(mDocument!=null && currentStart<currentEnd && currentStart>=0) {
+            Runnable runnable = () -> {
+                mDocument.deleteString(currentStart, currentEnd);
+                mDocument.insertString(currentStart, text);
+                currentEnd = currentStart + text.length();
+                currentText=text;
+                mEditor.getSelectionModel().setSelection(currentStart, currentEnd);
+            };
+            WriteCommandAction.runWriteCommandAction(mProject, runnable);
+        }
+    }
+    
     /** Revert the string that is first fetched via {@link #Rebase} */
     private void Revert() {
         String text = currentText;
@@ -733,7 +752,7 @@ public class PathTweakerDialog extends DialogWrapper {
         return /*((st > 0) || (*/len < input.length()/*))*/ ? input.substring(st, len) : input;
     }
     
-    private static Float parsefloat(String text){
+    static Float parsefloat(String text){
         try {
             return Float.parseFloat(text);
         } catch (Exception ignored) {  }
@@ -865,7 +884,7 @@ public class PathTweakerDialog extends DialogWrapper {
         WriteCommandAction.runWriteCommandAction(mProject, resizeImageRunnable);
     }
 
-    private final static Pattern reg = Pattern.compile("[MmLlZzSsCcVvHhAaQqTt ]");
+    final static Pattern regSep = Pattern.compile("[MmLlZzSsCcVvHhAaQqTt ]");
     private final static Pattern regLower = Pattern.compile("[a-z]");
     private final static Pattern regVertical = Pattern.compile("[Vv]");
     
@@ -878,7 +897,7 @@ public class PathTweakerDialog extends DialogWrapper {
                 pathbuilder.setLength(0);
             }
             //Pattern regHorizontal = Pattern.compile("[Hh]");
-            Matcher m = reg.matcher(pathdata);
+            Matcher m = regSep.matcher(pathdata);
             int idx = 0;
             String lastCommand = null;
             Float[] firstOrg = null;
@@ -1102,7 +1121,7 @@ public class PathTweakerDialog extends DialogWrapper {
     }
 
 
-    private static void Log(Object... o) {
+    static void Log(Object... o) {
         StringBuilder msg= new StringBuilder();
         if(o!=null)
 			for (Object value : o) {
