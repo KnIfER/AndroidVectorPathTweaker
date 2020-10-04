@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.knziha.vectorpathtweaker</id>
     <name>VectorPathTweaker</name>
-    <version>1.8</version>
+    <version>1.9</version>
     <vendor email="knziha@gmail.com" url="https://github.com/KnIfER/AndroidVectorPathTweaker">KnIfER</vendor>
 
     <description><![CDATA[
@@ -18,9 +18,10 @@
       <li>V1.0: Initial release of the plugin.</li>
       <li>V1.1: Able to use mouse wheel + text caret to tweak float parameters.</li>
       <li>V1.56: Add support for A,T and Q svg commands.</li>
-      <li>V1.6: New Feature: Resize the viewport.</li>
-      <li>V1.7: New Feature: Sync/Reset buttons.</li>
-      <li>V1.8: New Tool: Toggle Background Canvas.</li>
+      <li>V1.6: New Feature: + Resize the viewport.</li>
+      <li>V1.7: New Feature: + Sync/Reset buttons.</li>
+      <li>V1.8: New Tool to Toggle Background Canvas.</li>
+      <li>V1.9: New Tool to Insert/Remove commas between coordinates.</li>
     ]]></change-notes>
 
     <!-- please see http://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/build_number_ranges.html for description -->
