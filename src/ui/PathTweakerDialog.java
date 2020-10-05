@@ -1,6 +1,5 @@
 /*
  * Copyright 2020 KnIfER. https://github.com/KnIfER
- * Copyright 2018 Airsaid. (as template)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,9 +49,11 @@ import java.util.regex.Pattern;
  * @author KnIfER
  */
 public class PathTweakerDialog extends DialogWrapper {
+    public static JBCheckBox checkEssence;
+    public static JBCheckBox checkMerge;
     private static boolean debug = false;
     private AnActionEvent       mActionEvent;
-    private Project             mProject;
+    public Project             mProject;
     Document            mDocument;
     private Editor              mEditor;
     private int currentStart;
@@ -61,11 +62,12 @@ public class PathTweakerDialog extends DialogWrapper {
     private JTextArea logview;
     String currentText;
 
-    private float viewportHeight=24, viewportWidth=24;
-    private float scaler =  1f;
-    private float scalerY = scaler;
-    private float transX;
-    private float transY;
+    float viewportHeight=24, viewportWidth=24;
+    float Width=24, Height=24;
+    float scaler =  1f;
+    float scalerY = scaler;
+    float transX;
+    float transY;
 
     private static long flagStore;
     private long firstflag;
@@ -154,7 +156,58 @@ public class PathTweakerDialog extends DialogWrapper {
         super.doCancelAction();
         flagStore = firstflag;
     }
-    
+
+    final static MouseWheelListener mouseWheelListener = e -> {
+        JTextField fieldToModify = (JTextField) e.getSource();
+        String valstr = fieldToModify.getText();
+        Float val = parsefloat(valstr);
+        float now = 0;
+        double quantity = 0.1;
+        int keep=2;
+        int xiaoshudian=-1;
+        int caret = -1;
+        if(val!=null){
+            now = val;
+            int len = valstr.length();
+            int idx = valstr.lastIndexOf(".");
+            xiaoshudian = idx;
+            if(idx>0){
+                keep = len-idx-1;
+            } else {
+                xiaoshudian = len;
+            }
+            if(fieldToModify.isFocusOwner()){
+                caret = fieldToModify.getCaretPosition();
+                int level;
+                if(caret>=0 && caret<=len){
+                    if(valstr.trim().startsWith("-")){
+                        int negationIdx = valstr.indexOf("-");
+                        if(caret<=negationIdx) caret=negationIdx+1;
+                    }
+                    if(caret==len) caret=len-1;
+                    if(idx<0) idx = len;
+                    level = idx - caret;
+                    if(idx>caret) level-=1;
+                } else {
+                    if(idx>0){//找到小数级别
+                        level = -len+idx+1;
+                    } else {
+                        level = idx<0?0:-1;
+                    }
+                }
+                quantity = (float) Math.pow(10, level);
+            }
+        }
+        if(keep>3) keep=3;
+        valstr = String.format("%."+keep+"f", now-quantity*e.getWheelRotation());
+        fieldToModify.setText(valstr);
+        if(caret!=-1) {
+            int xs2 = valstr.lastIndexOf(".");
+            if(xs2!=xiaoshudian) caret = caret + xs2 - xiaoshudian;
+            if(caret>=valstr.length()) caret=valstr.length();
+            fieldToModify.setCaretPosition(caret);
+        }
+    };
     
     @Nullable
     @Override
@@ -246,58 +299,6 @@ public class PathTweakerDialog extends DialogWrapper {
 
         };
 
-        MouseWheelListener mouseWheelListener = e -> {
-            JTextField fieldToModify = (JTextField) e.getSource();
-            String valstr = fieldToModify.getText();
-            Float val = parsefloat(valstr);
-            float now = 0;
-            double quantity = 0.1;
-            int keep=2;
-            int xiaoshudian=-1;
-            int caret = -1;
-			if(val!=null){
-				now = val;
-				int len = valstr.length();
-				int idx = valstr.lastIndexOf(".");
-				xiaoshudian = idx;
-				if(idx>0){
-					keep = len-idx-1;
-				} else {
-					xiaoshudian = len;
-				}
-				if(fieldToModify.isFocusOwner()){
-					caret = fieldToModify.getCaretPosition();
-					int level;
-					if(caret>=0 && caret<=len){
-					    if(valstr.trim().startsWith("-")){
-                            int negationIdx = valstr.indexOf("-");
-                            if(caret<=negationIdx) caret=negationIdx+1;
-                        }
-						if(caret==len) caret=len-1;
-						if(idx<0) idx = len;
-						level = idx - caret;
-						if(idx>caret) level-=1;
-					} else {
-						if(idx>0){//找到小数级别
-							level = -len+idx+1;
-						} else {
-							level = idx<0?0:-1;
-						}
-					}
-					quantity = (float) Math.pow(10, level);
-				}
-			}
-            if(keep>3) keep=3;
-            valstr = String.format("%."+keep+"f", now-quantity*e.getWheelRotation());
-			fieldToModify.setText(valstr);
-            if(caret!=-1) {
-                int xs2 = valstr.lastIndexOf(".");
-                if(xs2!=xiaoshudian) caret = caret + xs2 - xiaoshudian;
-                if(caret>=valstr.length()) caret=valstr.length();
-                fieldToModify.setCaretPosition(caret);
-            }
-        };
-
         LayouteatMan layoutEater = new LayouteatMan(itemListener, inputListener, mouseWheelListener);
         
         /* let's code hard Swing UI ! */
@@ -339,7 +340,7 @@ public class PathTweakerDialog extends DialogWrapper {
         etFieldx = layoutEater.eatEt("0.0");
         layoutEater.eatLabel("Y:");
         etFieldy = layoutEater.eatEt("0.0");
-        row_translate.add(decorated_reset_btn(e -> {
+        row_translate.add(decorated_small_btn("⟳", e -> {
             etFieldx.setText("0.0");
             etFieldy.setText("0.0");
             LabelCheck.setSelected(true);
@@ -353,7 +354,7 @@ public class PathTweakerDialog extends DialogWrapper {
         etFieldscale = layoutEater.eatEt("1.0");
         layoutEater.eatLabel("Y:");
         etFieldscaleY = layoutEater.eatEt("1.0");
-        row_scale.add(decorated_reset_btn(e -> {
+        row_scale.add(decorated_small_btn("⟳", e -> {
             etFieldscale.setText("1.0");
             etFieldscaleY.setText("1.0");
             LabelCheck1.setSelected(true);
@@ -414,6 +415,8 @@ public class PathTweakerDialog extends DialogWrapper {
             String data = mDocument.getText();
             viewportWidth = parseFloatAttr(data, "viewportWidth", viewportWidth);
             viewportHeight = parseFloatAttr(data, "viewportHeight", viewportHeight);
+            Width = parseFloatAttr(data, "width", viewportWidth);
+            Height = parseFloatAttr(data, "height", viewportHeight);
             etFieldvw.setText(Float.toString(viewportWidth));
             etFieldvh.setText(Float.toString(viewportHeight));
             APPLY_IMAGESIZE.setEnabled(false);
@@ -432,8 +435,10 @@ public class PathTweakerDialog extends DialogWrapper {
             return ret;
         }
         
-        public void mouseClicked(MouseEvent e){
-            check.setSelected(!check.isSelected());
+        public void mouseClicked(MouseEvent e) {
+            if(check.isEnabled()) {
+                check.setSelected(!check.isSelected());
+            }
         }
     }
     
@@ -446,6 +451,7 @@ public class PathTweakerDialog extends DialogWrapper {
         Button button;
         JLabel label;
         JTextField etFloat;
+        JTextArea etArea;
         JButton jbutton;
 
         LayouteatMan Wrap(Container cont) {
@@ -511,10 +517,20 @@ public class PathTweakerDialog extends DialogWrapper {
             fft.add(etFloat);
             return etFloat;
         }
+        
+        JTextArea eatEta(String text, boolean listen) {
+            etArea = new JTextArea(text);
+            if(listen) {
+                etArea.getDocument().addDocumentListener(_inputListener);
+                etArea.addMouseWheelListener(_mouseWheelListener);
+            }
+            fft.add(etArea);
+            return etArea;
+        }
     }
 
-    private JButton decorated_reset_btn(ActionListener actionListener) {
-        JButton jb = new JButton("⟳");
+    static JButton decorated_small_btn(String text, ActionListener actionListener) {
+        JButton jb = new JButton(text);
         int pad=0;
         jb.setMargin(new JBInsets(pad, pad, pad, pad));
         jb.addActionListener(actionListener);
@@ -677,6 +693,18 @@ public class PathTweakerDialog extends DialogWrapper {
         APPLY_IMAGESIZE.setEnabled(false);
     }
 
+    public String getDocText(boolean useSelection) {
+        try {
+            if(useSelection) {
+                SelectionModel selectionModel = mEditor.getSelectionModel();
+                return selectionModel.getSelectedText();
+            }
+            return mDocument.getText();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+    
     static float parseFloatAttr(String data, String key, float def) {
         int idx = data.indexOf(key);
         if(idx!=-1){
@@ -754,7 +782,7 @@ public class PathTweakerDialog extends DialogWrapper {
     
     static Float parsefloat(String text){
         try {
-            return Float.parseFloat(text);
+            return Float.parseFloat(text.replaceAll("[a-zA-Z]", ""));
         } catch (Exception ignored) {  }
         return null;
     }
@@ -795,93 +823,87 @@ public class PathTweakerDialog extends DialogWrapper {
     }
 
     /** 1024dp -> 24dp */
-    Runnable resizeImageRunnable;
     private void resizeImage() {
-        if(resizeImageRunnable==null) {
-            resizeImageRunnable = () -> {
-                if(mEditor!=null) {
-                    boolean succ = false;
-                    
-                    Document document = mEditor.getDocument();
+        if(mEditor!=null) {
+            boolean succ = false;
 
-                    String data = document.getText();
+            Document document = mEditor.getDocument();
 
-                    FetchUserDefViewportDimensions();
+            String data = document.getText();
 
-                    float documentImageWidth = parseFloatAttr(data, "viewportWidth", viewportWidth);
+            FetchUserDefViewportDimensions();
 
-                    float documentImageHeight = parseFloatAttr(data, "viewportHeight", viewportHeight);
+            float documentImageWidth = parseFloatAttr(data, "viewportWidth", viewportWidth);
 
-                    float scaleX = viewportWidth/documentImageWidth;
+            float documentImageHeight = parseFloatAttr(data, "viewportHeight", viewportHeight);
 
-                    float scaleY = viewportHeight/documentImageHeight;
+            float scaleX = viewportWidth/documentImageWidth;
 
-                    float transX = (viewportWidth - documentImageWidth)/2;
+            float scaleY = viewportHeight/documentImageHeight;
 
-                    float transY = (viewportHeight - documentImageHeight)/2;
+            float transX = (viewportWidth - documentImageWidth)/2;
 
-                    Pattern pathPat = Pattern.compile("pathData=\"(.*?)\"", Pattern.DOTALL);
+            float transY = (viewportHeight - documentImageHeight)/2;
 
-                    Pattern essencePat = Pattern.compile("(.*?)(?=[mM])(.*)(?<=[zZ])(.*?)", Pattern.DOTALL);
+            Pattern pathPat = Pattern.compile("pathData=\"(.*?)\"", Pattern.DOTALL);
 
-                    Matcher m = pathPat.matcher(data);
+            Pattern essencePat = Pattern.compile("(.*?)(?=[mM])(.*)(?<=[zZ])(.*?)", Pattern.DOTALL);
 
-                    StringBuffer sb = new StringBuffer(data.length()+64);
+            Matcher m = pathPat.matcher(data);
 
-                    while(m.find()) {
-                        String dataSeg = m.group(1);
-                        
-                        m.appendReplacement(sb, "");
-                        
-                        sb.append("pathData=\"");
-                        if(dataSeg==null) {
-                            dataSeg="";
-                        }
-                        Matcher m2 = essencePat.matcher(dataSeg);
+            StringBuffer sb = new StringBuffer(data.length()+64);
 
-                        if(m2.find()) {
-                            if(m2.group(1)!=null) {
-                                sb.append(m2.group(1));
-                            }
+            while(m.find()) {
+                String dataSeg = m.group(1);
 
-                            String essence = m2.group(2);
+                m.appendReplacement(sb, "");
 
-                            Log("Tweaking...", essence);
+                sb.append("pathData=\"");
+                if(dataSeg==null) {
+                    dataSeg="";
+                }
+                Matcher m2 = essencePat.matcher(dataSeg);
 
-                            essence = tweak_path_internal(instanceBuffer, essence, viewportWidth, viewportHeight, 1, 1, transX, transY
-                                    , false, false, false, getKeepOrg(), getShrinkOrg());
-                            
-                            essence = tweak_path_internal(instanceBuffer, essence, viewportWidth, viewportHeight, scaleX, scaleY, 0, 0
-                                    , false, false, false, getKeepOrg(), getShrinkOrg());
-
-                            if(!succ && !essence.equals(m2.group(2))) {
-                                succ=true;
-                            }
-                            
-                            sb.append(essence);
-
-                            if(m2.group(3)!=null) {
-                                sb.append(m2.group(3));
-                            }
-                        } 
-                        else {
-                            sb.append(dataSeg);
-                        }
-
-                        sb.append("\"");
+                if(m2.find()) {
+                    if(m2.group(1)!=null) {
+                        sb.append(m2.group(1));
                     }
-                    
-                    if(succ) {
-                        m.appendTail(sb);
-                        setFloatAttr(sb, "viewportWidth", viewportWidth);
-                        setFloatAttr(sb, "viewportHeight", viewportHeight);
-                        InvalidateSelection();
-                        document.setText(sb);
+
+                    String essence = m2.group(2);
+
+                    if(debug) Log("Tweaking...", essence);
+
+                    essence = tweak_path_internal(instanceBuffer, essence, viewportWidth, viewportHeight, 1, 1, transX, transY
+                            , false, false, false, getKeepOrg(), getShrinkOrg());
+
+                    essence = tweak_path_internal(instanceBuffer, essence, viewportWidth, viewportHeight, scaleX, scaleY, 0, 0
+                            , false, false, false, getKeepOrg(), getShrinkOrg());
+
+                    if(!succ && !essence.equals(m2.group(2))) {
+                        succ=true;
+                    }
+
+                    sb.append(essence);
+
+                    if(m2.group(3)!=null) {
+                        sb.append(m2.group(3));
                     }
                 }
-            };
+                else {
+                    sb.append(dataSeg);
+                }
+
+                sb.append("\"");
+            }
+
+            if(succ) {
+                m.appendTail(sb);
+                setFloatAttr(sb, "viewportWidth", viewportWidth);
+                setFloatAttr(sb, "viewportHeight", viewportHeight);
+                InvalidateSelection();
+                setDocumentText(sb, 0);
+            }
         }
-        WriteCommandAction.runWriteCommandAction(mProject, resizeImageRunnable);
     }
 
     final static Pattern regSep = Pattern.compile("[MmLlZzSsCcVvHhAaQqTt ]");

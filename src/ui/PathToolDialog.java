@@ -1,16 +1,21 @@
 package ui;
 
+import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
+import com.intellij.openapi.vfs.VirtualFile;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.Transferable;
 import java.awt.event.*;
-import java.util.Arrays;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -18,9 +23,12 @@ import static ui.PathTweakerDialog.*;
 
 
 public class PathToolDialog extends DialogWrapper {
-    private PathTweakerDialog attachedTweaker;
+    PathTweakerDialog attachedTweaker;
+    SVGEXINDialog svgExporter;
     
     private int lastY=-1;
+    private File lastExportPath;
+    private File lastImportPath;
 
     PathToolDialog(@Nullable Project project) {
         super(project, false);
@@ -41,6 +49,10 @@ public class PathToolDialog extends DialogWrapper {
         if(attachedTweaker!=null) {
             attachedTweaker.removeComponentListener(dockMover);
         }
+        if(svgExporter!=null) {
+            svgExporter.close(1);
+            svgExporter.ReleaseInstance();
+        }
         PathTweakerDialog.ToolsDialog=null;
     }
 
@@ -56,7 +68,7 @@ public class PathToolDialog extends DialogWrapper {
         ReleaseInstance();
     }
     
-    void invokeModed() {
+    void invokeMoved() {
         if(attachedTweaker!=null) {
             dockMover.componentMoved(new ComponentEvent(attachedTweaker.getWindow(), ActionEvent.ACTION_PERFORMED));
         }
@@ -77,6 +89,19 @@ public class PathToolDialog extends DialogWrapper {
             }
             lastY = tweaker_location.y;
             window.setLocation(tweaker_location.x-window.getWidth(), thisY);
+            if(svgExporter!=null)
+            {
+                window = svgExporter.getWindow();
+                this_location = window.getLocation();
+                thisY=this_location.y;
+                if(svgExporter.lastY==-1) {
+                    thisY = tweaker_location.y+(attachedTweaker.getWindow().getHeight()-window.getHeight())/2;
+                } else {
+                    thisY += tweaker_location.y-svgExporter.lastY;
+                }
+                svgExporter.lastY = tweaker_location.y;
+                window.setLocation(tweaker_location.x-window.getWidth(), thisY);
+            }
         }
     };
 
@@ -92,11 +117,11 @@ public class PathToolDialog extends DialogWrapper {
                 show();
                 attachedTweaker=pathTweakerDialog;
                 attachedTweaker.addComponentListener(dockMover);
-                invokeModed();
+                invokeMoved();
             } else {
                 lastY=-1;
                 getWindow().setVisible(true);
-                invokeModed();
+                invokeMoved();
             }
         }
     }
@@ -129,22 +154,24 @@ public class PathToolDialog extends DialogWrapper {
         Container ft2 = layoutEater.startNewLayout();
         layoutEater.eatJButton("Unformat coords to remove commas ( L0,0 -> L0 0 )", e-> ForCoords(false) );
         
-        Container cPtx = layoutEater.startNewLayout();
+        Container row_export = layoutEater.startNewLayout();
         layoutEater.eatJButton("Export SVG...  ", e-> ShowSvgExporter() );
+        row_export.add(decorated_small_btn(">>", e->doExport(svgExporter)));
         layoutEater.eatJButton("Copy last initial path data", e-> copyText(attachedTweaker.currentText) );
+
+        Container row_import = layoutEater.startNewLayout();
+        layoutEater.eatJButton("Import SVG.. ", e-> ShowSvgExporter() );
+        row_import.add(decorated_small_btn(">>", e->doExport(svgExporter)));
 
         panel.add(vTbg);
         panel.add(ft1);
         panel.add(ft2);
-        //panel.add(cPtx);
+        panel.add(row_export);
+        panel.add(row_import);
 
         return panel;
     }
-
-    private void ShowSvgExporter() {
-        
-    }
-
+    
     /** Remove or insert ',' between coords. */
     private void ForCoords(boolean format) {
         PathTweakerDialog tweaker = attachedTweaker;
@@ -275,5 +302,162 @@ public class PathToolDialog extends DialogWrapper {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    private void ShowSvgExporter() {
+        if(svgExporter==null||svgExporter.state!=0) {
+            if(svgExporter!=null) svgExporter.close(0);
+            new SVGEXINDialog(this, 0);
+        }
+        svgExporter.lastY=-1;
+        svgExporter.show();
+        invokeMoved();
+    }
+
+    void doExport(SVGEXINDialog svgExporter) {
+        String text = svgExporter==null?null:svgExporter.bakedExport;
+        if(text==null) {
+            text = bakeExportedData(svgExporter);
+        }
+        if(text!=null) {
+            if(SVGEXINDialog.getExportToClipboard()) {
+                copyText(text);
+                if(svgExporter!=null) {
+                    svgExporter.close(0);
+                }
+            } else {
+                JFileChooser filePicker = new JFileChooser();
+                filePicker.setFileFilter(new FileNameExtensionFilter("Scalable Vector Graphics", "svg"));
+                filePicker.setSelectedFile(InferExportPath());
+                int returnVal = filePicker.showSaveDialog(new JPanel());
+                if(returnVal == JFileChooser.APPROVE_OPTION) {
+                    if(svgExporter!=null) {
+                        svgExporter.close(0);
+                    }
+                    File path = filePicker.getSelectedFile();
+                    lastExportPath = path.getParentFile();
+                    try {
+                        FileOutputStream fout = new FileOutputStream(path);
+                        fout.write(text.getBytes(StandardCharsets.UTF_8));
+                        fout.flush();
+                        fout.close();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+    }
+
+    private File InferExportPath() {
+        if(attachedTweaker!=null) { 
+            VirtualFile d = FileDocumentManager.getInstance().getFile(attachedTweaker.mDocument);
+            if(d!=null) {
+                String name = d.getName();
+                int idx = name.lastIndexOf(".");
+                if(idx>0) {
+                    name = name.substring(0, idx);
+                }
+                name=name+".svg";
+                if(lastExportPath==null) {
+                    lastExportPath = new File(d.getPath());
+                }
+                return new File(lastExportPath, name);
+            }
+        }
+        return null;
+    }
+
+    private String reverseFetchFill(String data, int start) {
+        int pathStart = data.lastIndexOf('<', start);
+        //Log("reverseFetchFill::", start, pathStart, data.substring(start));
+        if(pathStart<0||(start-pathStart)>256) {
+            pathStart = start;
+        }
+        start = data.indexOf("fillColor", pathStart);
+        if(start>0) {
+            int st = data.indexOf("#", start)+1;
+            if(st>1) {
+                int ed = data.indexOf("\"", st);
+                if(ed>0) {
+                    data = data.substring(st, ed).trim();
+                }
+                if(data.matches("[0-9a-fA-F]+")) {
+                    if(data.length()==8) {
+                        data = data.substring(2)+data.substring(0, 2);
+                    }
+                    return "#"+data;
+                }
+            }
+        }
+        return "#00f";
+    }
+
+    public String bakeExportedData(SVGEXINDialog svgExporter) {
+        String data;
+        if(svgExporter!=null && svgExporter.state==0) {
+            data = svgExporter.mText;
+        } else {
+            data = attachedTweaker.getDocText(SVGEXINDialog.getUseSelection());
+        }
+        if(data!=null) {
+            float documentImageWidth = SVGEXINDialog.viewportWidth;
+            float documentImageHeight = SVGEXINDialog.viewportHeight;
+            float scale = SVGEXINDialog.getScale()?SVGEXINDialog.scaler:1;
+            Pattern pathPat = Pattern.compile("pathData=\"(.*?)\"", Pattern.DOTALL);
+            Pattern essencePat = Pattern.compile("(.*?)(?=[mM])(.*)(?<=[zZ])(.*?)", Pattern.DOTALL);
+            Matcher m = pathPat.matcher(data);
+            StringBuffer sb = new StringBuffer((int) (data.length()*1.5));
+            boolean essencify = SVGEXINDialog.getExportToClipboard()&&SVGEXINDialog.getExportOnlyPathData();
+            boolean pathFound=false;
+            boolean pathMerge=!essencify&&SVGEXINDialog.getMerge();
+            while(m.find()) {
+                String dataSeg = m.group(1);
+                //m.appendReplacement(sb, "");
+                if(!essencify&&(!pathMerge||!pathFound)) {
+                    sb.append("<svg width='").append(documentImageWidth)
+                            .append("' height='").append(documentImageHeight)
+                            .append("' viewBox='0 0 ")
+                            .append(attachedTweaker.Width).append(" ")
+                            .append(attachedTweaker.Height).append("' xmlns=\"http://www.w3.org/2000/svg\">\n");
+                }
+                sb.append("  <path fill='")
+                    .append(reverseFetchFill(data, m.start())) // 找到颜色
+                    .append("' d='");
+                pathFound=true;
+                if (dataSeg == null) {
+                    dataSeg = "";
+                }
+                Matcher m2;
+                if(scale!=1&&(m2 = essencePat.matcher(dataSeg)).find()) {
+                    if(m2.group(1)!=null) {
+                        sb.append(m2.group(1));
+                    }
+                    String essence = m2.group(2);
+                    essence = tweak_path_internal(universal_buffer, essence, documentImageWidth, documentImageHeight, scale, scale, 0, 0
+                            , false, false, false, true, true);
+                    sb.append(essence);
+                    if(m2.group(3)!=null) {
+                        sb.append(m2.group(3));
+                    }
+                }
+                else {
+                    sb.append(dataSeg);
+                }
+                sb.append("'/>\n");
+                if(!essencify&&!pathMerge) {
+                    sb.append("</svg>\n");
+                }
+                if(SVGEXINDialog.getExportOnlyFirst()) {
+                    break;
+                }
+            }
+            if(!essencify&&pathMerge&&pathFound) {
+                sb.append("</svg>\n");
+            }
+            //m.appendTail(sb);
+            return sb.toString();
+        }
+        return null;
     }
 }
