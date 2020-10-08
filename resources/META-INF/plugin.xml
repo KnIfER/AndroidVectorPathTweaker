@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.knziha.vectorpathtweaker</id>
     <name>VectorPathTweaker</name>
-    <version>1.9</version>
+    <version>1.9.1</version>
     <vendor email="knziha@gmail.com" url="https://github.com/KnIfER/AndroidVectorPathTweaker">KnIfER</vendor>
 
     <description><![CDATA[

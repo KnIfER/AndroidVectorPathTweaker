@@ -9,7 +9,9 @@ import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
+import java.awt.datatransfer.*;
 import java.awt.event.*;
+import java.io.IOException;
 
 import static ui.PathTweakerDialog.*;
 
@@ -18,7 +20,7 @@ public class SVGEXINDialog extends DialogWrapper {
     private boolean systemInitialized=false;
     private PathTweakerDialog attachedTweaker;
     private PathToolDialog attachedTools;
-    int state;
+    final int state;
     int lastY=-1;
 
     private static long firstflag;
@@ -30,7 +32,6 @@ public class SVGEXINDialog extends DialogWrapper {
     
     static float viewportHeight=24, viewportWidth=24;
     static float scaler =  1f;
-    private JButton APPLY_IMAGESIZE;
     
     String mText;
     String bakedExport;
@@ -50,14 +51,25 @@ public class SVGEXINDialog extends DialogWrapper {
     @Multiline(flagPos=4, shift=0) static boolean getExportOnlyPathData(){ firstflag=firstflag; throw new RuntimeException(); }
     @Multiline(flagPos=4, shift=0) static void setExportOnlyPathData(boolean val){ firstflag=firstflag; throw new RuntimeException(); }
 
-    @Multiline(flagPos=5, shift=1) static boolean getMerge(){ firstflag=firstflag; throw new RuntimeException(); }
-    @Multiline(flagPos=5, shift=1) static void setMerge(boolean val){ firstflag=firstflag; throw new RuntimeException(); }
+    @Multiline(flagPos=5, shift=0) static boolean getMerge(){ firstflag=firstflag; throw new RuntimeException(); }
+    @Multiline(flagPos=5, shift=0) static void setMerge(boolean val){ firstflag=firstflag; throw new RuntimeException(); }
+
+
+    @Multiline(flagPos=6, shift=0) static boolean getUseViewport(){ firstflag=firstflag; throw new RuntimeException(); }
+    @Multiline(flagPos=6, shift=0) static void setUseViewport(boolean val){ firstflag=firstflag; throw new RuntimeException(); }
+
+    @Multiline(flagPos=7, shift=1) static boolean getUseViewport1(){ firstflag=firstflag; throw new RuntimeException(); }
+    @Multiline(flagPos=7, shift=1) static void setUseViewport1(boolean val){ firstflag=firstflag; throw new RuntimeException(); }
+
+    @Multiline(flagPos=8, shift=0) static boolean getImportFromClipboard(){ firstflag=firstflag; throw new RuntimeException(); }
+    @Multiline(flagPos=8, shift=0) static void setImportFromClipboard(boolean val){ firstflag=firstflag; throw new RuntimeException(); }
 
 
     SVGEXINDialog(@Nullable PathToolDialog toolDialog, int reason) {
         super(toolDialog.attachedTweaker.mProject, false);
         attachedTweaker=toolDialog.attachedTweaker;
         attachedTools=toolDialog;
+        state=reason;
         setModal(false);
         init();
         getWindow().addWindowListener(new WindowAdapter() {
@@ -66,7 +78,6 @@ public class SVGEXINDialog extends DialogWrapper {
                 ReleaseInstance();
             }
         });
-        state=reason;
         toolDialog.svgExporter=this;
         refetchText();
         bakeExportedData();
@@ -75,8 +86,19 @@ public class SVGEXINDialog extends DialogWrapper {
     }
 
     private void bakeExportedData() {
-        String text = attachedTools.bakeExportedData(this);
+        String text = state==0?attachedTools.bakeExportedData(this)
+                :getClipboardText();
         etField.setText(text);
+    }
+
+    static String getClipboardText() {
+        if(getImportFromClipboard()) {
+            Clipboard clip = Toolkit.getDefaultToolkit().getSystemClipboard();
+            try {
+                return (String) clip.getContents(null).getTransferData(DataFlavor.stringFlavor);
+            } catch (Exception ignored) {  }
+        }
+        return null;
     }
 
     private void refetchText() {
@@ -98,7 +120,11 @@ public class SVGEXINDialog extends DialogWrapper {
     protected void doOKAction() {
         super.doOKAction();
         if(attachedTools!=null) {
-            attachedTools.doExport(this);
+            if(state==0) {
+                attachedTools.doExport(this);
+            } else {
+                attachedTools.doImport(this);
+            }
         }
         ReleaseInstance();
     }
@@ -109,13 +135,16 @@ public class SVGEXINDialog extends DialogWrapper {
         ReleaseInstance();
     }
     
-    private void refetchImageSize() {
-        if(attachedTweaker!=null) {
+    void refetchImageSize(boolean fromThis) {
+        if(fromThis) {
+            viewportWidth = parsefloati(etFieldvw.getText(), attachedTweaker.viewportWidth);
+            viewportHeight = parsefloati(etFieldvh.getText(), attachedTweaker.viewportHeight);
+        }
+        else if(attachedTweaker!=null) {
             viewportWidth = attachedTweaker.viewportWidth;
             viewportHeight = attachedTweaker.viewportHeight;
             etFieldvw.setText(Float.toString(viewportWidth));
             etFieldvh.setText(Float.toString(viewportHeight));
-            APPLY_IMAGESIZE.setEnabled(false);
         }
     }
     
@@ -158,6 +187,15 @@ public class SVGEXINDialog extends DialogWrapper {
                     case 6: {
                         setMerge(checked);
                     } break;
+                    case 0: {
+                        setUseViewport(checked);
+                    } break;
+                    case 7: {
+                        setUseViewport1(checked);
+                    } break;
+                    case 8: {
+                        setImportFromClipboard(checked);
+                    } break;
                     default:
                     return;
                 }
@@ -178,6 +216,8 @@ public class SVGEXINDialog extends DialogWrapper {
                         Float f=parsefloat(etFieldscale.getText());
                         scaler=f==null?1:f;
                         bakeExportedData();
+                    } else if(doc==etField.getDocument()) {
+                        bakedExport=etFieldscale.getText();
                     }
                 }
             }
@@ -185,16 +225,21 @@ public class SVGEXINDialog extends DialogWrapper {
 
         LayouteatMan layoutEater = new LayouteatMan(itemListener, inputListener, mouseWheelListener);
         
+        boolean export_mode = state==0;
         /* viewport */
         Container row_viewport = layoutEater.startNewLayout();
-        layoutEater.eatLabel("Viewport Width");
+        if(export_mode) {
+            layoutEater.eatLabelCheck(0, getUseViewport(), "Viewport Width", true); // export to another viewport dimension
+        } else {
+            layoutEater.eatLabelCheck(7, getUseViewport1(), "Viewport Width", true); // import to this viewport dimension
+        }
         layoutEater.label.addMouseListener(new MouseAdapter() {
             long lastClickTime;
             @Override
             public void mouseClicked(MouseEvent e) {
                 long now = System.currentTimeMillis();
                 if(now-lastClickTime<450) {
-                    refetchImageSize();
+                    refetchImageSize(false);
                     lastClickTime = 0;
                 } else {
                     lastClickTime = now;
@@ -204,61 +249,70 @@ public class SVGEXINDialog extends DialogWrapper {
         etFieldvw = layoutEater.eatEt("24.0");
         row_viewport.add(new JLabel("Height"));
         etFieldvh = layoutEater.eatEt("24.0");
-        APPLY_IMAGESIZE = layoutEater.eatJButton("APPLY", e -> resizeImage());
-        refetchImageSize();
-
-        /* scale */
-        Container row_scale = layoutEater.startNewLayout();
-        layoutEater.eatLabelCheck(1, getScale(), "SCALE  ", true);
-        layoutEater.eatLabel("X&Y:");
-        etFieldscale = layoutEater.eatEt("1.0");
-
+        refetchImageSize(false);
+        panel.add(row_viewport);
+        layoutEater.eatJButton(" RESET ", e -> {
+            if(attachedTweaker!=null) {
+                viewportWidth = attachedTweaker.viewportWidth;
+                viewportHeight = attachedTweaker.viewportHeight;
+                etFieldvw.setText(Float.toString(viewportWidth));
+                etFieldvh.setText(Float.toString(viewportHeight));
+                bakeExportedData();
+            }
+        }); // 占位，否则太瘦了
+        
+        if(export_mode) {
+            /* scale */
+            Container row_scale = layoutEater.startNewLayout();
+            layoutEater.eatLabelCheck(1, getScale(), "SCALE  ", true);
+            layoutEater.eatLabel("X&Y:");
+            etFieldscale = layoutEater.eatEt("1.0");
+            panel.add(row_scale);
+        }
         /* editor */
         etField = layoutEater.eatEta(bakedExport, false);
+        if(!export_mode) {
+            etField.getDocument().addDocumentListener(inputListener);
+        }
         etField.setLineWrap(true);
+        // 多行模式
         JBScrollPane JSP=new JBScrollPane(etField);
         int height=125;
         JSP.setPreferredSize(new Dimension(50, height));
         JSP.setMinimumSize  (new Dimension(0, height));
         JSP.setMaximumSize  (new Dimension(1050, height));
-        
-        /* first */
-        Container row_first = layoutEater.startNewLayout();
-        layoutEater.eatLabelCheck(6, getMerge(), "Merge", true);
-        checkMerge = layoutEater.check;
-        checkMerge.setEnabled(!getExportOnlyFirst());
-        layoutEater.eatLabelCheck(4, getExportOnlyFirst(), "Export Only First", true);
-        layoutEater.eatLabelCheck(5, getExportOnlyPathData(), "Only pathData", true);
-        checkEssence = layoutEater.check;
-        checkEssence.setEnabled(getExportOnlyPathData());
-        
-        /* selection */
-        Container row_selection = layoutEater.startNewLayout();
-        layoutEater.eatLabelCheck(2, getUseSelection(), "Use Selection ", true);
-        layoutEater.eatLabelCheck(3, getExportToClipboard(), "Export to Clipboard ", true);
-        
-        
-        panel.add(row_viewport);
-        panel.add(row_scale);
         panel.add(JSP);
-        panel.add(row_first);
-        panel.add(row_selection);
+        
+        if(export_mode) {
+            /* first */
+            Container row_first = layoutEater.startNewLayout();
+            layoutEater.eatLabelCheck(6, getMerge(), "Merge", true);
+            checkMerge = layoutEater.check;
+            checkMerge.setEnabled(!getExportOnlyFirst());
+            layoutEater.eatLabelCheck(4, getExportOnlyFirst(), "Export Only First", true);
+            layoutEater.eatLabelCheck(5, getExportOnlyPathData(), "Only pathData", true);
+            checkEssence = layoutEater.check;
+            checkEssence.setEnabled(getExportOnlyPathData());
 
+            /* selection */
+            Container row_selection = layoutEater.startNewLayout();
+            layoutEater.eatLabelCheck(2, getUseSelection(), "Use Selection ", true);
+            layoutEater.eatLabelCheck(3, getExportToClipboard(), "Export to Clipboard ", true);
+            
+            panel.add(row_first);
+            panel.add(row_selection);
+        } 
+        else {
+            /* from */
+            Container row_from = layoutEater.startNewLayout();
+            layoutEater.eatLabelCheck(8, getImportFromClipboard(), "Import From Clipboard ", true);
+            panel.add(row_from);
+        }
+        
         systemInitialized=true;
         return panel;
     }
 
-    private void resizeImage() {
-        
+    private void resetViewport() {
     }
-
-
-    public boolean isDisposed() {
-        try{
-            return super.isDisposed();
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
 }

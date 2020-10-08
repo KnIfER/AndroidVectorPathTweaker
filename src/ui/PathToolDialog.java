@@ -40,7 +40,6 @@ public class PathToolDialog extends DialogWrapper {
                 ReleaseInstance();
             }
         });
-        
         //setOKActionEnabled(false);
         //getCancelAction().getValue()
     }
@@ -155,19 +154,19 @@ public class PathToolDialog extends DialogWrapper {
         layoutEater.eatJButton("Unformat coords to remove commas ( L0,0 -> L0 0 )", e-> ForCoords(false) );
         
         Container row_export = layoutEater.startNewLayout();
-        layoutEater.eatJButton("Export SVG...  ", e-> ShowSvgExporter() );
+        layoutEater.eatJButton("Export SVG...  ", e-> ShowSvgExporter(0) );
         row_export.add(decorated_small_btn(">>", e->doExport(svgExporter)));
         layoutEater.eatJButton("Copy last initial path data", e-> copyText(attachedTweaker.currentText) );
 
         Container row_import = layoutEater.startNewLayout();
-        layoutEater.eatJButton("Import SVG.. ", e-> ShowSvgExporter() );
+        layoutEater.eatJButton("Import SVG.. ", e-> ShowSvgExporter(1) );
         row_import.add(decorated_small_btn(">>", e->doExport(svgExporter)));
 
         panel.add(vTbg);
         panel.add(ft1);
         panel.add(ft2);
         panel.add(row_export);
-        panel.add(row_import);
+        //panel.add(row_import);
 
         return panel;
     }
@@ -296,24 +295,67 @@ public class PathToolDialog extends DialogWrapper {
         return dlg==attachedTweaker;
     }
 
-    public boolean isDisposed() {
-        try{
-            return super.isDisposed();
-        } catch (Exception e) {
-            return false;
-        }
+    public boolean _is_disposed;
+    
+    @Override
+    protected void dispose() {
+        _is_disposed=true;
+        super.dispose();
     }
 
-    private void ShowSvgExporter() {
-        if(svgExporter==null||svgExporter.state!=0) {
+    private void ShowSvgExporter(int mode) {
+        if(svgExporter==null||svgExporter.state!=mode) {
             if(svgExporter!=null) svgExporter.close(0);
-            new SVGEXINDialog(this, 0);
+            new SVGEXINDialog(this, mode);
         }
         svgExporter.lastY=-1;
         svgExporter.show();
         invokeMoved();
     }
 
+    void doImport(SVGEXINDialog svgExporter) {
+        String data = null;
+        if(SVGEXINDialog.getImportFromClipboard()) {
+            if(svgExporter!=null && svgExporter.state==1) {
+                data = svgExporter.bakedExport;
+            }
+            if(data==null) {
+                data = SVGEXINDialog.getClipboardText();
+            }
+        } 
+        else {
+            //todo import from file
+        }
+        if(data!=null) {
+            float viewportWidth = attachedTweaker.viewportWidth;
+            float viewportHeight = attachedTweaker.viewportHeight;
+            float documentImageWidth = parseFloatAttr(data, "width", viewportWidth);
+            float documentImageHeight = parseFloatAttr(data, "height", viewportHeight);
+            if(svgExporter!=null && SVGEXINDialog.getUseViewport1()) {
+                svgExporter.refetchImageSize(true);
+                viewportWidth = SVGEXINDialog.viewportWidth;
+                viewportHeight = SVGEXINDialog.viewportHeight;
+            }
+            float scaleX = viewportWidth/documentImageWidth;  // expected size / xml size
+            float scaleY = viewportHeight/documentImageHeight; // expected size / xml size
+            float transX = (viewportWidth - documentImageWidth)/2;
+            float transY = (viewportHeight - documentImageHeight)/2;
+            StringBuffer sb = new StringBuffer((int) (data.length()*1.5));
+            Pattern pathPat = Pattern.compile("\\sd=['\"](.*?)['\"]");
+            Matcher m = pathPat.matcher(data);
+            while(m.find()) {
+                sb.append("<path android:fillColor=\"")
+                    .append("#acafa0")
+                    .append("\" android:pathData=\"");
+                String pathData = m.group(1);
+                pathData = attachedTweaker.moveThenScaleEssence(pathData, viewportWidth, viewportHeight, transX, transY, scaleX, scaleY);
+                sb.append(pathData);
+                sb.append("\"/>\n");
+            }
+            attachedTweaker.addDocumentText(sb);
+        }
+    }
+    
     void doExport(SVGEXINDialog svgExporter) {
         String text = svgExporter==null?null:svgExporter.bakedExport;
         if(text==null) {

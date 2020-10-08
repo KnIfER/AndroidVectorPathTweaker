@@ -137,7 +137,7 @@ public class PathTweakerDialog extends DialogWrapper {
         //Log("onClose!!!");
         InstanceCount--;
         if(ToolsDialog!=null) {
-            if(InstanceCount<=0||ToolsDialog.isDisposed()||ToolsDialog.isDockedTo(PathTweakerDialog.this)) {
+            if(InstanceCount<=0||ToolsDialog._is_disposed||ToolsDialog.isDockedTo(PathTweakerDialog.this)) {
                 ToolsDialog.close(1);
                 ToolsDialog.ReleaseInstance();
             }
@@ -489,8 +489,8 @@ public class PathTweakerDialog extends DialogWrapper {
             }
         }
         
-        void eatLabelCheck(int id, boolean flipX, String text, boolean checkLabel) {
-            eatCheckable(id, flipX);
+        void eatLabelCheck(int id, boolean checked, String text, boolean checkLabel) {
+            eatCheckable(id, checked);
             eatLabel(text);
             if(checkLabel) {
                 label.addMouseListener(new CheckableLable(check));
@@ -581,6 +581,18 @@ public class PathTweakerDialog extends DialogWrapper {
                     currentStart+=selOffset;
                     currentEnd+=selOffset;
                 }
+            });
+        }
+    }
+
+    void addDocumentText(CharSequence text) {
+        if(mDocument!=null){
+            WriteCommandAction.runWriteCommandAction(mProject, ()-> {
+                int idx = mDocument.getText().lastIndexOf("</vector>");
+                if(idx<=0) {
+                    idx = mDocument.getTextLength();
+                }
+                mDocument.insertString(idx, text);
             });
         }
     }
@@ -706,12 +718,16 @@ public class PathTweakerDialog extends DialogWrapper {
     }
     
     static float parseFloatAttr(String data, String key, float def) {
-        int idx = data.indexOf(key);
+        return parseFloatAttr(data, key, def, 0);
+    }
+    
+    static float parseFloatAttr(String data, String key, float def, int offset) {
+        int idx = data.indexOf(key, offset);
         if(idx!=-1){
-            idx = data.indexOf('"', idx+key.length());
+            idx = indexOfNxtQuote(data, idx+key.length());
             if(idx!=-1){
                 ++idx;
-                int end = data.indexOf('"', idx);
+                int end = indexOfNxtQuote(data, idx);
                 if(end!=-1){
                     Float val = parsefloat(data.substring(idx, end));
                     if(val!=null) return val;
@@ -720,7 +736,18 @@ public class PathTweakerDialog extends DialogWrapper {
         }
         return def;
     }
-    
+
+    private static int indexOfNxtQuote(String data, int idx) {
+        char c;
+        for(int i=idx,len=data.length();i<len;i++) {
+            c=data.charAt(i);
+            if(c=='\"'||c=='\'') {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     private static void setFloatAttr(StringBuffer data, String key, float def) {
         int idx = data.indexOf(key);
         if(idx!=-1){
@@ -786,6 +813,12 @@ public class PathTweakerDialog extends DialogWrapper {
         } catch (Exception ignored) {  }
         return null;
     }
+    
+    static float parsefloati(String text, float def){
+        Float f=parsefloat(text);
+        if(f!=null) return f;
+        return def;
+    }
 
     static int parsint(String text){
         try {
@@ -832,14 +865,14 @@ public class PathTweakerDialog extends DialogWrapper {
             String data = document.getText();
 
             FetchUserDefViewportDimensions();
-
+           
             float documentImageWidth = parseFloatAttr(data, "viewportWidth", viewportWidth);
-
+            
             float documentImageHeight = parseFloatAttr(data, "viewportHeight", viewportHeight);
 
-            float scaleX = viewportWidth/documentImageWidth;
+            float scaleX = viewportWidth/documentImageWidth;  // expected size / xml size
 
-            float scaleY = viewportHeight/documentImageHeight;
+            float scaleY = viewportHeight/documentImageHeight; // expected size / xml size
 
             float transX = (viewportWidth - documentImageWidth)/2;
 
@@ -873,11 +906,7 @@ public class PathTweakerDialog extends DialogWrapper {
 
                     if(debug) Log("Tweaking...", essence);
 
-                    essence = tweak_path_internal(instanceBuffer, essence, viewportWidth, viewportHeight, 1, 1, transX, transY
-                            , false, false, false, getKeepOrg(), getShrinkOrg());
-
-                    essence = tweak_path_internal(instanceBuffer, essence, viewportWidth, viewportHeight, scaleX, scaleY, 0, 0
-                            , false, false, false, getKeepOrg(), getShrinkOrg());
+                    essence = moveThenScaleEssence(essence, viewportWidth, viewportHeight, transX, transY, scaleX, scaleY);
 
                     if(!succ && !essence.equals(m2.group(2))) {
                         succ=true;
@@ -904,6 +933,16 @@ public class PathTweakerDialog extends DialogWrapper {
                 setDocumentText(sb, 0);
             }
         }
+    }
+
+    String moveThenScaleEssence(String essence, float vwxp, float vhxp, float transX, float transY, float scaleX, float scaleY) {
+        essence = tweak_path_internal(instanceBuffer, essence, vwxp, vhxp, 1, 1, transX, transY
+                , false, false, false, getKeepOrg(), getShrinkOrg());
+
+        essence = tweak_path_internal(instanceBuffer, essence, vwxp, vhxp, scaleX, scaleY, 0, 0
+                , false, false, false, getKeepOrg(), getShrinkOrg());
+
+        return essence;
     }
 
     final static Pattern regSep = Pattern.compile("[MmLlZzSsCcVvHhAaQqTt ]");
